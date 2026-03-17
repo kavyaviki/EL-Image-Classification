@@ -1,0 +1,49 @@
+{% extends 'base_dashboard.html' %} <!-- Inherit from base.html -->
+{% load crispy_forms_tags %} <!-- Load crispy forms template tags -->
+
+{% block title %}Register{% endblock %} <!-- Fill title block -->
+
+{% block public_content %} <!-- Fill content block -->
+<div class="row justify-content-center min-vh-100 align-items-center">
+    <div class="col-md-5">
+        <div class="text-center mb-4">
+            <i class="fas fa-solar-panel fa-4x text-primary"></i>
+            <h2 class="mt-3">Create Account</h2>
+            <p class="text-muted">Join Solar Panel Inspection System</p>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-user-plus me-2 text-primary"></i>Registration Form</h5>
+            </div>
+            <div class="card-body">
+                <!-- 
+                    Form rendering:
+                    - method="post" sends data as POST
+                    - novalidate turns off browser validation
+                -->
+                <form method="post" novalidate>
+                    {% csrf_token %}  <!-- Security token - mandatory for POST -->
+                    <!-- 
+                        This single line does ALL of this:
+                        1. Renders all form fields with labels
+                        2. Adds Bootstrap classes
+                        3. Shows validation errors
+                        4. Adds help text
+                        5. Structures the layout
+                    -->
+                    {{ form|crispy }}
+                    <button type="submit" class="btn btn-primary w-100 mt-3">
+                        <i class="fas fa-user-plus me-2"></i>Register
+                    </button>
+                </form>
+                <hr>
+                <p class="text-center mb-0">
+                    Already have an account? 
+                    <a href="{% url 'users:login' %}" class="text-primary">Login here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
