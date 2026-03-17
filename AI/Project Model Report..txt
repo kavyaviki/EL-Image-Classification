@@ -1,0 +1,89 @@
+-----Solar Images-----
+
+1. Project Overview
+
+Domain : Solar Energy – Photovoltaic (PV) Module Inspection.
+Task: Automated defect detection in Electroluminescence (EL) images of solar cells using Deep Learning.
+Categories: Binary Classification (Classes: `defect` and `good`).
+
+2. Technical Stack
+
+Deep Learning Framework: PyTorch
+Model Library: `timm` (PyTorch Image Models)
+Computational Hardware: NVIDIA GPU (CUDA) used for training acceleration.
+Supporting Libraries: NumPy, Matplotlib (Visualization), Scikit-learn (Evaluation Metrics), and tqdm (Progress tracking).
+
+3. Image Pre-processing & Augmentation
+
+To improve model robustness and generalize better to new images, the following pipeline was used:
+Input Size: Images are resized to 384 x 384 pixels.
+Normalization: Applied using ImageNet statistics:
+Mean: `[0.485, 0.456, 0.406]`
+Std Dev: `[0.229, 0.224, 0.225]`
+
+Augmentation Techniques (Training Only):
+Random Horizontal Flip.
+Random Rotation (up to 10 degrees).
+Color Jitter (Brightness and Contrast adjusted by 0.2).
+
+
+
+4. Training Hyperparameters
+
+These parameters define the training regimen found in the "developed code":
+ Batch Size: 16
+ Epochs: 40
+ Learning Rate (LR): 1e-4 (0.0001)
+ Optimizer: Adam Optimizer (`optim.Adam`).
+ Loss Function: Cross-Entropy Loss (`nn.CrossEntropyLoss`).
+
+5. Dataset Structure
+
+The project utilizes a standard directory-based split:
+ Path: `Dataset_Split/`
+ Subfolders: `train`, `val`, and `test`.
+ Loader: `DataLoader` with 4 worker threads for efficient data streaming.
+
+==========================================================
+
+1. Data Pre-processing & Augmentation Flowchart
+
+This visual explains how raw images are transformed before the model "sees" them. It proves that you addressed the challenge of small datasets by creating synthetic variety.
+ Step 1: Resize (Standardizing to 384 \times 384)
+ Step 2: Augmentation (Horizontal Flip, \pm 10^\circ Rotation, Color Jitter/Brightness adjustment)
+ Step 3: Normalization (Subtracting Mean `[0.485, 0.456, 0.406]` and dividing by Std `[0.229, 0.224, 0.225]`)
+
+2. Sample Images (Good vs. Defect)
+In your PPT, place these side-by-side. For the "Defect" image, look for patterns your model identified during training:
+ Good Cell: Clean, uniform gray/black intensity across all busbars.
+ Defective Cell: Look for dark spots (inactive areas), bright white lines (micro-cracks), or missing grid lines (finger failures).
+
+3. Model Performance Graphs
+Since your notebook uses 40 epochs, you should plot the metrics recorded during the training loop. This visual proves the model actually "learned" and didn't just memorize the data.
+
+ Loss Curve: Both Training and Validation loss should trend downward. If validation loss starts going up while training loss goes down, mention "Overfitting" as a challenge you monitored.
+ Accuracy Curve: Shows the percentage of correct classifications over time.
+
+4. Confusion Matrix
+This is the most important slide for a technical audience. It breaks down exactly where the model gets confused.
+ True Positives (TP): Defective cells correctly identified.
+ True Negatives (TN): Good cells correctly identified.
+ False Positives (FP): Good cells incorrectly flagged as defective (increases inspection costs).
+ False Negatives (FN): Defective cells missed (reduces panel quality).
+
+5. Summary Table of Parameters (For PPT Appendix)
+
+| Parameter 		| 	Value |
+| --- 			| 	---   |
+| Model Architecture 	| `timm` library pre-trained Model efficientnet_b3 variant |
+| Input Resolution 	| 384 \times 384 pixels |
+| Epochs 		| 40 |
+| Batch Size 		| 16 |
+| Learning Rate 	| 1 \times 10^{-4} (Adam Optimizer) |
+| Loss Function 	| Cross-Entropy |
+| Hardware 		| NVIDIA GPU (via CUDA) |
+
+6. Where the Threshold Fits (Final Slide)
+Include a small text box or bullet point explaining:
+
+"The model outputs a probability (0 to 1). We apply a Decision Threshold of 0.5 to categorize the output. This threshold can be adjusted in the production environment to prioritize either 'Zero Defect Escape' (lower threshold) or 'Minimized Manual Re-inspection' (higher threshold)."
