@@ -1,4 +1,63 @@
+# =========================
+# 🔐 Environment & Secrets
+# =========================
 .env
 *.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# =========================
+# 🧠 Python
+# =========================
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.py[cod]
+*.so
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# =========================
+# 📦 Build / Distribution
+# =========================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+# 🧪 Testing / Coverage
+# =========================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# 🖥️ OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# 🧾 Logs
+# =========================
+*.log
+
+# =========================
+# 🚀 Streamlit
+# =========================
+.streamlit/
+
+# =========================
+# 📂 Temporary Files
+# =========================
+temp/
+tmp/
+*.tmp
