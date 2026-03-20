@@ -1,0 +1,242 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Review Queue{% endblock %}
+
+{% block page_title %}Review Queue{% endblock %}
+{% block page_subtitle %}Review and update inspections that need attention{% endblock %}
+
+{% block content %}
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h6 class="mb-2">Pending Review</h6>
+                <h2 class="mb-0">{{ inspections.count }}</h2>
+                <small>Awaiting human review</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h6 class="mb-2">Queued for Processing</h6>
+                <h2 class="mb-0">{{ queued_count|default:0 }}</h2>
+                <small>Waiting for AI</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <h6 class="mb-2">Processing</h6>
+                <h2 class="mb-0">{{ processing_count|default:0 }}</h2>
+                <small>Being analyzed by AI</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <input type="text" class="form-control" id="searchInput" placeholder="Search by filename...">
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="statusFilter">
+                    <option value="">All Status</option>
+                    {% for status_value, status_label in status_choices %}
+                        <option value="{{ status_value }}">{{ status_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <input type="date" class="form-control" id="dateFilter">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" onclick="applyFilters()">
+                    <i class="fas fa-filter me-2"></i>Filter
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Queue Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="reviewTable">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="px-4 py-3">File Name</th>
+                        <th class="py-3">Upload Date</th>
+                        <th class="py-3">Status</th>
+                        <th class="py-3">AI Confidence</th>
+                        <th class="py-3">Classification</th>
+                        <th class="py-3">Action</th>
+                        <th class="px-4 py-3">Review</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inspection in inspections %}
+                    <tr>
+                        <td class="px-4 py-3">
+                            <i class="fas fa-file-image me-2 text-primary"></i>
+                            {{ inspection.name }}
+                        </td>
+                        <td class="py-3">{{ inspection.uploaded_at|date:"Y-m-d H:i" }}</td>
+                        <td class="py-3">
+                            <span class="badge 
+                                {% if inspection.status == 'human_review' %}bg-warning
+                                {% elif inspection.status == 'queued' %}bg-secondary
+                                {% elif inspection.status == 'processing' %}bg-info
+                                {% elif inspection.status == 'completed' %}bg-success
+                                {% elif inspection.status == 'failed' %}bg-danger
+                                {% endif %} px-3 py-2">
+                                {{ inspection.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="py-3">
+                            {% if inspection.ai_confidence %}
+                                <div class="progress" style="height: 20px; width: 100px;">
+                                    <div class="progress-bar 
+                                        {% if inspection.ai_confidence > 0.8 %}bg-success
+                                        {% elif inspection.ai_confidence > 0.6 %}bg-warning
+                                        {% else %}bg-danger{% endif %}" 
+                                        style="width: {% widthratio inspection.ai_confidence 1 100 %}%">
+                                        {% widthratio inspection.ai_confidence 1 100 %}%
+                                    </div>
+                                </div>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="py-3">
+                            <span class="badge 
+                                {% if inspection.ai_classification == 'good' %}bg-success
+                                {% elif inspection.ai_classification == 'defect' %}bg-danger
+                                {% else %}bg-secondary{% endif %}">
+                                {{ inspection.ai_classification|default:"Pending"|title }}
+                            </span>
+                        </td>
+                        <td class="py-3">
+                            <a href="{% url 'inspections:detail' inspection.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i>View
+                            </a>
+                        </td>
+                        <td class="px-4 py-3">
+                            <select class="form-select form-select-sm status-update" 
+                                    data-id="{{ inspection.id }}"
+                                    style="width: 140px;">
+                                <option value="">Update Status</option>
+                                <option value="queued">Queue for AI</option>
+                                <option value="processing">Start Processing</option>
+                                <option value="human_review">Human Review</option>
+                                <option value="completed">Mark Completed</option>
+                                <option value="failed">Mark Failed</option>
+                            </select>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
+                            <h5>No items in review queue</h5>
+                            <p class="text-muted">All caught up! No inspections need review at the moment.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Handle status updates
+document.querySelectorAll('.status-update').forEach(select => {
+    select.addEventListener('change', function() {
+        const inspectionId = this.dataset.id;
+        const newStatus = this.value;
+        
+        if (!newStatus) return;
+        
+        // Show confirmation
+        if (!confirm(`Change status to ${newStatus}?`)) {
+            this.value = '';
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('status', newStatus);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        fetch(`/inspections/api/update-status/${inspectionId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                window.location.reload();
+            } else {
+                alert('❌ Failed to update: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error updating status');
+        })
+        .finally(() => {
+            this.value = '';
+        });
+    });
+});
+
+// Filter functionality
+function applyFilters() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const status = document.getElementById('statusFilter').value;
+    const date = document.getElementById('dateFilter').value;
+    
+    const rows = document.querySelectorAll('#reviewTable tbody tr');
+    
+    rows.forEach(row => {
+        let show = true;
+        
+        if (search) {
+            const filename = row.cells[0].textContent.toLowerCase();
+            if (!filename.includes(search)) show = false;
+        }
+        
+        if (status && show) {
+            const statusCell = row.cells[2].querySelector('.badge');
+            const statusText = statusCell.textContent.trim().toLowerCase();
+            if (!statusText.includes(status.toLowerCase())) show = false;
+        }
+        
+        if (date && show) {
+            const rowDate = row.cells[1].textContent.split(' ')[0];
+            if (rowDate !== date) show = false;
+        }
+        
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// Live search
+document.getElementById('searchInput').addEventListener('keyup', applyFilters);
+document.getElementById('statusFilter').addEventListener('change', applyFilters);
+document.getElementById('dateFilter').addEventListener('change', applyFilters);
+</script>
+{% endblock %}

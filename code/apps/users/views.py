@@ -11,6 +11,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from .models import User
 from .forms import CustomUserCreationForm, CustomUserChangeForm, LoginForm
+from apps.inspections.models import Inspection
 
 # Authentication Views
 def register_view(request):
@@ -81,9 +82,43 @@ def logout_view(request):
 @login_required
 def profile_view(request):
     """
-    View user profile
+    View user profile with dynamic stats
     """
-    return render(request, 'users/profile.html', {'user': request.user})
+    # Get stats for the current user
+    total_uploads = Inspection.objects.filter(uploaded_by=request.user).count()
+    
+    good_panels = Inspection.objects.filter(
+        uploaded_by=request.user,
+        ai_classification='good'
+    ).count()
+    
+    defective_panels = Inspection.objects.filter(
+        uploaded_by=request.user,
+        ai_classification='defect'
+    ).count()
+    
+    human_overrides = Inspection.objects.filter(
+        uploaded_by=request.user,
+        human_override=True
+    ).count()
+    
+    pending_review = Inspection.objects.filter(
+        uploaded_by=request.user,
+        status='human_review'
+    ).count()
+    
+    stats = {
+        'total_uploads': total_uploads,
+        'good_panels': good_panels,
+        'defective_panels': defective_panels,
+        'human_overrides': human_overrides,
+        'pending_review': pending_review,
+    }
+    
+    return render(request, 'users/profile.html', {
+        'user': request.user,
+        'stats': stats
+    })
 
 @login_required
 def profile_edit_view(request):

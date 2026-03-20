@@ -61,16 +61,13 @@ class CustomUserChangeForm(UserChangeForm):
     class Meta:
         model = User
         fields = ('username', 'email', 'first_name', 'last_name', 
-                 'phone_number', 'profile_picture', 
-                 'emergency_contact_name', 'emergency_contact_phone')
+                 'phone_number', 'profile_picture')
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control'}),
             'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'phone_number': forms.TextInput(attrs={'class': 'form-control'}),
-            'emergency_contact_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'emergency_contact_phone': forms.TextInput(attrs={'class': 'form-control'}),
             'profile_picture': forms.FileInput(attrs={'class': 'form-control'}),
         }
 

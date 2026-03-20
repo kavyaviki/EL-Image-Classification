@@ -9,6 +9,7 @@ urlpatterns = [
     path('upload/', views.upload_page, name='upload'),
     path('<uuid:pk>/', views.inspection_detail, name='detail'),
     path('analytics/', views.analytics_dashboard, name='analytics'),
+    path('review-queue/', views.review_queue, name='review_queue'),
     
     # API endpoints
     path('api/upload/', views.upload_inspection, name='api_upload'),

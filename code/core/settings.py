@@ -158,7 +158,7 @@ LOGOUT_REDIRECT_URL = 'users:login'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-AI_SERVICE_URL = config('AI_SERVICE_URL', default='http://localhost:8000')
+AI_SERVICE_URL = config('AI_SERVICE_URL', default='http://localhost:8001')
 
 # AWS Configuration (add this section)
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default='')

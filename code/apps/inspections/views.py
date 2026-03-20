@@ -1,6 +1,7 @@
 # inspections/views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from .models import Inspection, HumanOverride
@@ -141,23 +142,43 @@ def inspection_detail(request, pk):
 @login_required
 def inspection_list(request):
     """
-    List all inspections
+    List all inspections with pagination and filters
     """
+    # Filter by current user only
     inspections = Inspection.objects.filter(uploaded_by=request.user)
     
-    # Add filters
-    status = request.GET.get('status')
-    if status:
-        inspections = inspections.filter(status=status)
-    
-    # Search by name
+    # Add search filter
     search = request.GET.get('search')
     if search:
         inspections = inspections.filter(name__icontains=search)
     
+    # Add status filter
+    status = request.GET.get('status')
+    if status:
+        inspections = inspections.filter(status=status)
+    
+    # Add date filter (filter by date uploaded)
+    date_filter = request.GET.get('date')
+    if date_filter:
+        inspections = inspections.filter(uploaded_at__date=date_filter)
+    
+    # Order by most recent first
+    inspections = inspections.order_by('-uploaded_at')
+    
+    # Pagination - 10 items per page
+    paginator = Paginator(inspections, 10)
+    page = request.GET.get('page', 1)
+    
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+    
     context = {
-        'inspections': inspections,
-        'status_choices': Inspection.STATUS_CHOICES
+        'page_obj': page_obj,
+        'status_choices': Inspection.STATUS_CHOICES,
     }
     return render(request, 'inspections/list.html', context)
 
@@ -216,35 +237,7 @@ def analytics_dashboard(request):
     
     return render(request, 'inspections/analytics.html', context)
 
-# @login_required
-# @require_POST
-# def human_override(request, pk):
-#     """
-#     Handle human override of AI results
-#     """
-#     inspection = get_object_or_404(Inspection, pk=pk, uploaded_by=request.user)
-    
-#     # Create override record
-#     override = HumanOverride.objects.create(
-#         inspection=inspection,
-#         overridden_by=request.user,
-#         original_status=inspection.status,
-#         original_classification=inspection.ai_classification,
-#         new_status=request.POST.get('status', inspection.status),
-#         new_classification=request.POST.get('classification', inspection.ai_classification),
-#         reason=request.POST.get('reason', ''),
-#         notes=request.POST.get('notes', ''),
-#         from_date=timezone.now(),
-#         to_date=request.POST.get('to_date') if request.POST.get('to_date') else None
-#     )
-    
-#     # Update inspection
-#     inspection.human_override = True
-#     inspection.status = override.new_status
-#     inspection.ai_classification = override.new_classification
-#     inspection.save()
-    
-#     return JsonResponse({'success': True, 'message': 'Override saved successfully'})
+
 
 @login_required
 @require_POST
@@ -309,3 +302,67 @@ def human_override(request, pk):
         'is_update': True if 'override' in locals() and override.id else False,
         'override_id': str(override.id)
     })
+
+@login_required
+def review_queue(request):
+    """
+    Display all inspections that need human review
+    Status can be: 'human_review'.
+    You can customize which statuses appear here
+    """
+    # Get inspections that need review
+    # You can modify this query based on your needs
+    review_inspections = Inspection.objects.filter(
+        uploaded_by=request.user,
+        status__in=['human_review']  # Add statuses that need review
+    ).order_by('-uploaded_at')
+    
+    # Count for badge
+    review_count = review_inspections.count()
+    
+    context = {
+        'inspections': review_inspections,
+        'review_count': review_count,
+        'status_choices': Inspection.STATUS_CHOICES,
+    }
+    return render(request, 'inspections/review_queue.html', context)
+
+@login_required
+@require_POST
+def update_inspection_status(request, pk):
+    """
+    API endpoint to update inspection status from review queue
+    """
+    inspection = get_object_or_404(Inspection, pk=pk, uploaded_by=request.user)
+    
+    new_status = request.POST.get('status')
+    notes = request.POST.get('notes', '')
+    
+    if new_status:
+        inspection.status = new_status
+        inspection.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Status updated to {new_status}',
+            'new_status': new_status
+        })
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'No status provided'
+    }, status=400)
+
+# Also add a context processor to show count in sidebar
+def review_queue_count(request):
+    """
+    Context processor to show count in sidebar badge
+    Add this to TEMPLATES context_processors in settings.py
+    """
+    if request.user.is_authenticated:
+        count = Inspection.objects.filter(
+            uploaded_by=request.user,
+            status__in=['human_review']
+        ).count()
+        return {'review_queue_count': count}
+    return {'review_queue_count': 0}
