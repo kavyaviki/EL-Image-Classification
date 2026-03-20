@@ -1,148 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solar Panel Inspection - {% block title %}{% endblock %}</title>
-    
+    <title>EL Classification - {% block title %}{% endblock %}</title>
+
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- Custom CSS -->
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    
+
     {% block extra_css %}{% endblock %}
 </head>
+
 <body>
     {% if user.is_authenticated %}
-        <!-- Dashboard Layout -->
-        <div class="dashboard-container">
-            <!-- Sidebar -->
-            <div class="sidebar">
-                <div class="logo-area">
-                    <h3><i class="fas fa-solar-panel me-2"></i>SolarPanel</h3>
-                    <small>Quality Inspection System</small>
-                </div>
-                
-                <div class="user-info">
-                    <div class="user-avatar">
-                        {% if user.profile_picture %}
-                            <img src="{{ user.profile_picture.url }}" alt="Profile" style="width: 48px; height: 48px; border-radius: 12px; object-fit: cover;">
-                        {% else %}
-                            <i class="fas fa-user fa-2x text-white"></i>
-                        {% endif %}
-                    </div>
-                    <div class="user-details">
-                        <h6>{{ user.get_full_name|default:user.username }}</h6>
-                        <p>{{ user.email }}</p>
-                    </div>
-                </div>
-                
-                <ul class="nav-menu">
-                    <li class="nav-item">
-                        <a href="{% url 'users:profile' %}" class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
-                            <i class="fas fa-chart-pie"></i>
-                            <span>Results Dashboard</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link active">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                            <span>Upload Images</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{% url 'users:profile_edit' %}" class="nav-link {% if request.resolver_match.url_name == 'profile_edit' %}active{% endif %}">
-                            <i class="fas fa-cog"></i>
-                            <span>Settings</span>
-                        </a>
-                    </li>
-                    {% if user.is_superuser %}
-                    <li class="nav-item">
-                        <a href="{% url 'users:user_list' %}" class="nav-link {% if request.resolver_match.url_name == 'user_list' %}active{% endif %}">
-                            <i class="fas fa-users-cog"></i>
-                            <span>User Management</span>
-                        </a>
-                    </li>
+    <!-- Dashboard Layout -->
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo-area">
+                <h3><i class="fas fa-solar-panel me-2"></i>EL Classification</h3>
+                <small>Quality Inspection System</small>
+            </div>
+
+            <div class="user-info">
+                <div class="user-avatar">
+                    {% if user.profile_picture %}
+                    <img src="{{ user.profile_picture.url }}" alt="Profile"
+                        style="width: 48px; height: 48px; border-radius: 12px; object-fit: cover;">
+                    {% else %}
+                    <i class="fas fa-user-circle fa-2x text-white"></i>
                     {% endif %}
-                    <li class="nav-item mt-4">
-                        <a href="{% url 'users:logout' %}" class="nav-link text-danger">
-                            <i class="fas fa-sign-out-alt"></i>
-                            <span>Logout</span>
-                        </a>
-                    </li>
-                </ul>
-            </div>
-            
-            <!-- Main Content -->
-            <div class="main-content">
-                <!-- Top Bar -->
-                <div class="top-bar">
-                    <div class="page-title">
-                        <h2>{% block page_title %}Upload EL Images{% endblock %}</h2>
-                        <p>{% block page_subtitle %}Upload solar panel EL images for AI-based quality inspection and defect detection{% endblock %}</p>
-                    </div>
-                    <div class="top-bar-actions">
-                        <span class="badge bg-light text-dark p-2">
-                            <i class="fas fa-user-shield me-1"></i>
-                            {% if user.is_superuser %}Admin{% else %}User{% endif %}
-                        </span>
-                    </div>
                 </div>
-                
-                <!-- Messages -->
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            <i class="fas fa-{% if message.tags == 'success' %}check-circle{% else %}exclamation-circle{% endif %} me-2"></i>
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-                
-                <!-- Content Block -->
-                {% block content %}
-                {% endblock %}
+                <div class="user-details">
+                    <h6>{{ user.get_full_name|default:user.username }}</h6>
+                    <p>{{ user.email }}</p>
+                </div>
             </div>
+
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{% url 'inspections:upload' %}"
+                        class="nav-link {% if request.resolver_match.url_name == 'upload' %}active{% endif %}">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Upload EL Images</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'inspections:list' %}"
+                        class="nav-link {% if request.resolver_match.url_name == 'list' %}active{% endif %}">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Results Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Review Queue</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'inspections:analytics' %}"
+                        class="nav-link {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Analytics & Insights</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'users:profile_edit' %}"
+                        class="nav-link {% if request.resolver_match.url_name == 'profile_edit' %}active{% endif %}">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                    </a>
+                </li>
+
+                <li class="nav-item mt-4">
+                    <a href="{% url 'users:logout' %}" class="nav-link text-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
+                    </a>
+                </li>
+            </ul>
         </div>
-    {% else %}
-        <!-- Public Layout (for login/register) -->
-        <div class="container">
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="page-title">
+                    <h2>{% block page_title %}{% endblock %}</h2>
+                    <p>{% block page_subtitle %}{% endblock %}</p>
+                </div>
+                <div class="top-bar-actions">
+                    <span class="badge bg-light text-dark p-2">
+                        <i class="fas fa-user-shield me-1"></i>
+                        {{ user.get_full_name|default:user.username }}
+                    </span>
+                </div>
+            </div>
+
             <!-- Messages -->
             {% if messages %}
-                <div class="container mt-3">
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    {% endfor %}
-                </div>
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                <i
+                    class="fas fa-{% if message.tags == 'success' %}check-circle{% else %}exclamation-circle{% endif %} me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
             {% endif %}
-            
-            <!-- Public Content -->
-            {% block public_content %}
+
+            <!-- Content Block -->
+            {% block content %}
             {% endblock %}
         </div>
+    </div>
+    {% else %}
+    <!-- Public Layout (for login/register) -->
+    <div class="container">
+        {% if messages %}
+        <div class="container mt-3">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block public_content %}
+        {% endblock %}
+    </div>
     {% endif %}
-    
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
+
     <!-- Custom JS -->
     <script src="{% static 'js/main.js' %}"></script>
-    
+
     {% block extra_js %}{% endblock %}
 </body>
+
 </html>

@@ -1,0 +1,259 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Inspection Details{% endblock %}
+
+{% block page_title %}AI Classification{% endblock %}
+{% block page_subtitle %}Review detailed analysis{% endblock %}
+
+{% block content %}
+<!-- Navigation Bar -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="{% url 'inspections:list' %}" class="btn btn-link text-decoration-none text-dark">
+            <i class="fas fa-arrow-left me-2"></i>Back to Results
+        </a>
+    </div>
+    <div class="d-flex align-items-center">
+        <span class="me-3">IMG-000001</span>
+        <span class="badge bg-success me-3">100%</span>
+        <button class="btn btn-outline-secondary btn-sm me-2">Previous</button>
+        <span class="mx-2">1 of 150</span>
+        <button class="btn btn-outline-secondary btn-sm">Next</button>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left Column - Image -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body text-center p-4">
+                <div class="bg-light rounded-3 p-5 mb-3">
+                    <i class="fas fa-image fa-5x text-muted"></i>
+                </div>
+                <h5>{{ inspection.name }}</h5>
+                <p class="text-muted mb-0">Uploaded {{ inspection.uploaded_at|timesince }} ago</p>
+                <p class="text-muted small mb-0">Job ID: {{ inspection.job_id }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column - AI Classification -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">AI Classification</h5>
+            </div>
+            <div class="card-body">
+                <!-- Confidence Score -->
+                <div class="mb-4">
+                    <h6 class="text-muted mb-2">Confidence Score</h6>
+                    <div class="d-flex align-items-center">
+                        <h1 class="display-4 {% if inspection.ai_confidence > 0.8 %}text-success{% elif inspection.ai_confidence > 0.6 %}text-warning{% else %}text-danger{% endif %} mb-0 me-3">
+                            {% if inspection.ai_confidence %}
+                                {% widthratio inspection.ai_confidence 1 100 %}%
+                            {% else %}
+                                -
+                            {% endif %}
+                        </h1>
+                        <span class="badge {% if inspection.ai_classification == 'good' %}bg-success{% elif inspection.ai_classification == 'defect' %}bg-danger{% else %}bg-secondary{% endif %} px-4 py-2 fs-6">
+                            {{ inspection.ai_classification|upper|default:"PENDING" }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Detected Defects (if any) -->
+                {% if defects %}
+                <div class="mb-4">
+                    <h6 class="text-muted mb-2">Detected Defects</h6>
+                    {% for defect in defects %}
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-warning px-3 py-2 me-2">{{ defect.confidence }}%</span>
+                        <span>{{ defect.defect_type|title }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <!-- AI Explanation (placeholder) -->
+                <div class="bg-light p-3 rounded-3">
+                    <h6 class="mb-2">AI Explanation</h6>
+                    <p class="mb-0 text-muted small">
+                        {% if inspection.ai_explanation %}
+                            {{ inspection.ai_explanation }}
+                        {% else %}
+                            Analysis complete. Panel classified as {{ inspection.ai_classification|default:"pending" }} with confidence {{ inspection.ai_confidence|floatformat:2 }}.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Human Override Section - ALWAYS VISIBLE -->
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Human Override</h5>
+                {% if inspection.human_override %}
+                    <span class="badge bg-info">Previously Overridden</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <!-- Show previous override info if exists -->
+                {% if inspection.human_override and inspection.override %}
+                    <div class="alert alert-info mb-3">
+                        <h6>Previous Override Details</h6>
+                        <p class="mb-1"><strong>Reason:</strong> {{ inspection.override.reason }}</p>
+                        <p class="mb-1"><strong>From:</strong> {{ inspection.override.from_date|date:"Y-m-d H:i" }}</p>
+                        {% if inspection.override.to_date %}
+                            <p class="mb-1"><strong>To:</strong> {{ inspection.override.to_date|date:"Y-m-d H:i" }}</p>
+                        {% endif %}
+                        <p class="mb-0"><small>Overridden by: {{ inspection.override.overridden_by.email }}</small></p>
+                    </div>
+                {% endif %}
+                
+                <!-- Override Form - Always visible -->
+                <form id="overrideForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Override Classification</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="classification" id="classGood" value="good" 
+                                       {% if inspection.ai_classification == 'good' and not inspection.human_override %}checked{% endif %}
+                                       {% if inspection.override and inspection.override.new_classification == 'good' %}checked{% endif %}>
+                                <label class="form-check-label" for="classGood">
+                                    <span class="badge bg-success">Good</span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="classification" id="classDefect" value="defect"
+                                       {% if inspection.ai_classification == 'defect' and not inspection.human_override %}checked{% endif %}
+                                       {% if inspection.override and inspection.override.new_classification == 'defect' %}checked{% endif %}>
+                                <label class="form-check-label" for="classDefect">
+                                    <span class="badge bg-danger">Defective</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="reason" class="form-label fw-bold">Reason *</label>
+                        <select name="reason" id="reason" class="form-select" required>
+                            <option value="">Select a reason...</option>
+                            <option value="AI missed defect" {% if inspection.override and inspection.override.reason == 'AI missed defect' %}selected{% endif %}>AI missed defect</option>
+                            <option value="False positive" {% if inspection.override and inspection.override.reason == 'False positive' %}selected{% endif %}>False positive</option>
+                            <option value="Borderline case" {% if inspection.override and inspection.override.reason == 'Borderline case' %}selected{% endif %}>Borderline case</option>
+                            <option value="Manual review required" {% if inspection.override and inspection.override.reason == 'Manual review required' %}selected{% endif %}>Manual review required</option>
+                            <option value="Other" {% if inspection.override and inspection.override.reason == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="notes" class="form-label fw-bold">Notes (Optional)</label>
+                        <textarea name="notes" id="notes" class="form-control" rows="2" 
+                                  placeholder="Add any additional notes or observations...">{{ inspection.override.notes|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge {% if inspection.ai_classification == 'good' %}bg-success{% elif inspection.ai_classification == 'defect' %}bg-danger{% else %}bg-secondary{% endif %} p-2">
+                                AI Decision: {{ inspection.ai_classification|title|default:"Pending" }}
+                            </span>
+                            {% if inspection.human_override %}
+                                <span class="badge bg-warning p-2 ms-2">
+                                    Overridden
+                                </span>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-warning px-4" onclick="submitOverride()">
+                            <i class="fas fa-save me-2"></i>Save Override
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function submitOverride() {
+    // Validate form
+    const classification = document.querySelector('input[name="classification"]:checked');
+    const reason = document.getElementById('reason').value;
+    
+    if (!classification) {
+        alert('Please select a classification (Good or Defective)');
+        return;
+    }
+    
+    if (!reason) {
+        alert('Please select a reason');
+        return;
+    }
+    
+    const form = document.getElementById('overrideForm');
+    const formData = new FormData(form);
+    
+    // Show loading state
+    const submitBtn = document.querySelector('button[onclick="submitOverride()"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+    submitBtn.disabled = true;
+    
+    fetch(`/inspections/api/override/{{ inspection.id }}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Override saved successfully');
+            window.location.reload();
+        } else {
+            alert('❌ Failed to save override: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error saving override: ' + error.message);
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+// Add confirmation if changing an existing override
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('overrideForm');
+    const originalValues = {
+        classification: document.querySelector('input[name="classification"]:checked')?.value,
+        reason: document.getElementById('reason').value,
+        notes: document.getElementById('notes').value
+    };
+    
+    // Optional: Warn if leaving without saving changes
+    let formChanged = false;
+    form.addEventListener('change', function() {
+        formChanged = true;
+    });
+    
+    window.addEventListener('beforeunload', function(e) {
+        if (formChanged) {
+            e.preventDefault();
+            e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        }
+    });
+    
+    form.addEventListener('submit', function() {
+        formChanged = false;
+    });
+});
+</script>
+{% endblock %}

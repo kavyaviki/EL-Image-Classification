@@ -61,7 +61,7 @@ def login_view(request):
             if user:
                 login(request, user)
                 messages.success(request, f"Welcome back {user.username}!")
-                next_url = request.GET.get('next', 'users:profile')
+                next_url = request.GET.get('next', 'inspections:upload')
                 return redirect(next_url)
     else:
         form = LoginForm()

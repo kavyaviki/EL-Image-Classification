@@ -8,101 +8,96 @@
 
 {% block content %}
 <div class="row">
-    <!-- Stats Cards -->
-    <div class="col-md-3">
-        <div class="stat-card">
-            <i class="fas fa-images fa-2x mb-2"></i>
-            <p>Total Uploads</p>
-            <h3>0</h3>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #4cc9f0, #4895ef);">
-            <i class="fas fa-check-circle fa-2x mb-2"></i>
-            <p>Good Panels</p>
-            <h3>0</h3>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #f72585, #b5179e);">
-            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
-            <p>Defects Found</p>
-            <h3>0</h3>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #f8961e, #f3722c);">
-            <i class="fas fa-clock fa-2x mb-2"></i>
-            <p>Pending Review</p>
-            <h3>0</h3>
-        </div>
-    </div>
-</div>
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <!-- Upload Area - Exactly like Image 1 -->
+                    <div class="upload-area text-center p-5 border border-2 border-dashed rounded-3 mb-4" 
+                         style="cursor: pointer; background-color: #f8f9fa; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"
+                         onclick="document.getElementById('fileInput').click()"
+                         ondragover="event.preventDefault(); this.classList.add('border-primary', 'bg-light');"
+                         ondragleave="this.classList.remove('border-primary', 'bg-light');"
+                         ondrop="handleDrop(event)">
+                        
+                        <i class="fas fa-cloud-upload-alt fa-4x text-primary mb-3"></i>
+                        <h4 class="mb-2">Drag & drop EL images here</h4>
+                        <p class="text-muted mb-3">or</p>
+                        
+                        <button type="button" class="btn btn-outline-primary px-4 py-2" onclick="document.getElementById('fileInput').click()">
+                            Browse Files
+                        </button>
+                        
+                        <input type="file" id="fileInput" name="images" multiple accept="image/*" style="display: none;" onchange="handleFiles(this.files)">
+                        
+                        <div class="mt-4 text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Supported formats: PNG, JPG, TIFF • Max file size: 50MB
+                        </div>
+                    </div>
 
-<!-- Upload Area -->
-<div class="card mt-4">
-    <div class="card-header bg-white">
-        <h5 class="mb-0"><i class="fas fa-cloud-upload-alt me-2 text-primary"></i>Upload New Images</h5>
-    </div>
-    <div class="card-body">
-        <form method="post" enctype="multipart/form-data" id="uploadForm">
-            {% csrf_token %}
-            
-            <div class="upload-area" id="dropArea">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <h4>Drag & drop EL images here</h4>
-                <p>or</p>
-                <button type="button" class="btn-browse" onclick="document.getElementById('fileInput').click()">
-                    Browse Files
-                </button>
-                <input type="file" id="fileInput" name="images" multiple accept=".png,.jpg,.jpeg,.tiff" style="display: none;">
-                <div class="mt-3 text-muted small">
-                    <i class="fas fa-info-circle me-1"></i>
-                    Supported formats: PNG, JPG, TIFF • Max file size: 50MB
+                    <!-- File Preview -->
+                    <div id="previewContainer" class="row g-3 mb-4" style="display: none;"></div>
+
+                    <!-- Upload Button -->
+                    <div class="text-center">
+                        <button type="button" id="submitBtn" class="btn btn-primary px-5 py-2" disabled onclick="submitUpload()">
+                            <i class="fas fa-upload me-2"></i>Upload Images
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recent Uploads -->
+        <div class="card mt-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Uploads</h5>
+                <a href="{% url 'inspections:list' %}" class="btn btn-link text-decoration-none">View All →</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="px-4">File Name</th>
+                                <th>Uploaded</th>
+                                <th>Status</th>
+                                <th>Job ID</th>
+                                <th class="px-4">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for inspection in recent_inspections %}
+                            <tr>
+                                <td class="px-4">{{ inspection.name }}</td>
+                                <td>{{ inspection.uploaded_at|timesince }} ago</td>
+                                <td>
+                                    <span class="badge {% if inspection.status == 'completed' %}bg-success{% elif inspection.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %} px-3 py-2">
+                                        {{ inspection.get_status_display }}
+                                    </span>
+                                </td>
+                                <td><code>{{ inspection.job_id|truncatechars:12 }}</code></td>
+                                <td class="px-4">
+                                    <a href="{% url 'inspections:detail' inspection.id %}" class="btn btn-sm btn-outline-primary">
+                                        View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
+                                    <p>No uploads yet. Start by uploading images above.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            
-            <!-- File Preview Area -->
-            <div id="previewArea" class="row mt-4" style="display: none;"></div>
-            
-            <!-- Upload Button -->
-            <div class="text-center mt-4">
-                <button type="submit" class="btn btn-primary btn-lg px-5" id="uploadBtn" disabled>
-                    <i class="fas fa-upload me-2"></i>Start Upload
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Recent Uploads -->
-<div class="card mt-4">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-history me-2 text-info"></i>Recent Uploads</h5>
-        <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Image</th>
-                        <th>Uploaded By</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                        <th>Confidence</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">
-                            <i class="fas fa-cloud-upload-alt fa-3x mb-3 d-block"></i>
-                            No uploads yet. Start by uploading images.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
         </div>
     </div>
 </div>
@@ -110,95 +105,109 @@
 
 {% block extra_js %}
 <script>
-    // Drag and drop functionality
-    const dropArea = document.getElementById('dropArea');
-    const fileInput = document.getElementById('fileInput');
-    const previewArea = document.getElementById('previewArea');
-    const uploadBtn = document.getElementById('uploadBtn');
-    let selectedFiles = [];
+let selectedFiles = [];
 
-    // Prevent default drag behaviors
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, preventDefaults, false);
-        document.body.addEventListener(eventName, preventDefaults, false);
-    });
+function handleFiles(files) {
+    selectedFiles = Array.from(files);
+    updatePreview();
+}
 
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    // Highlight drop area on drag
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropArea.addEventListener(eventName, highlight, false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, unhighlight, false);
-    });
-
-    function highlight(e) {
-        dropArea.classList.add('border-primary', 'bg-light');
-    }
-
-    function unhighlight(e) {
-        dropArea.classList.remove('border-primary', 'bg-light');
-    }
-
-    // Handle dropped files
-    dropArea.addEventListener('drop', handleDrop, false);
-    fileInput.addEventListener('change', handleFiles, false);
-
-    function handleDrop(e) {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        handleFiles({ target: { files: files } });
-    }
-
-    function handleFiles(e) {
-        selectedFiles = [...e.target.files];
+function handleDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('border-primary', 'bg-light');
+    
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+        selectedFiles = Array.from(files);
         updatePreview();
     }
+}
 
-    function updatePreview() {
-        if (selectedFiles.length > 0) {
-            previewArea.style.display = 'flex';
-            uploadBtn.disabled = false;
-            
-            previewArea.innerHTML = selectedFiles.map((file, index) => `
-                <div class="col-md-3 mb-3">
-                    <div class="card">
-                        <div class="card-body text-center p-2">
+function updatePreview() {
+    const previewContainer = document.getElementById('previewContainer');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (selectedFiles.length > 0) {
+        previewContainer.style.display = 'flex';
+        submitBtn.disabled = false;
+        
+        let html = '';
+        selectedFiles.forEach((file, index) => {
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            html += `
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center p-3">
                             <i class="fas fa-file-image fa-3x text-primary mb-2"></i>
                             <p class="small text-truncate mb-1">${file.name}</p>
-                            <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                            <small class="text-muted">${fileSize} MB</small>
                             <button type="button" class="btn btn-sm btn-danger mt-2" onclick="removeFile(${index})">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
                     </div>
                 </div>
-            `).join('');
-        } else {
-            previewArea.style.display = 'none';
-            uploadBtn.disabled = true;
-        }
+            `;
+        });
+        previewContainer.innerHTML = html;
+    } else {
+        previewContainer.style.display = 'none';
+        submitBtn.disabled = true;
+    }
+}
+
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    const dt = new DataTransfer();
+    selectedFiles.forEach(file => dt.items.add(file));
+    document.getElementById('fileInput').files = dt.files;
+    updatePreview();
+}
+
+function submitUpload() {
+    if (selectedFiles.length === 0) {
+        alert('Please select files to upload');
+        return;
     }
 
-    function removeFile(index) {
-        selectedFiles.splice(index, 1);
-        
-        // Create new FileList
-        const dt = new DataTransfer();
-        selectedFiles.forEach(file => dt.items.add(file));
-        fileInput.files = dt.files;
-        
-        updatePreview();
-    }
-
-    // Click on drop area to browse
-    dropArea.addEventListener('click', () => {
-        fileInput.click();
+    const formData = new FormData();
+    selectedFiles.forEach(file => {
+        formData.append('images', file);
     });
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+    const submitBtn = document.getElementById('submitBtn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+    submitBtn.disabled = true;
+
+    fetch('/inspections/api/upload/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Success! Job ID: ${data.job_id}`);
+            window.location.reload();
+        } else {
+            alert('❌ Upload failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Upload failed: ' + error.message);
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => e.preventDefault());
 </script>
 {% endblock %}
