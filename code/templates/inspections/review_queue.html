@@ -10,29 +10,29 @@
 <!-- Summary Cards -->
 <div class="row mb-4">
     <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="mb-2">Total Items</h6>
+                <h2 class="mb-0">{{ total_count }}</h2>
+                <small>All items needing review</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="mb-2">Reviewed</h6>
+                <h2 class="mb-0">{{ reviewed_count }}</h2>
+                <small>Completed review (overridden)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
         <div class="card bg-warning text-white">
             <div class="card-body">
                 <h6 class="mb-2">Pending Review</h6>
-                <h2 class="mb-0">{{ inspections.count }}</h2>
+                <h2 class="mb-0">{{ pending_count }}</h2>
                 <small>Awaiting human review</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card bg-info text-white">
-            <div class="card-body">
-                <h6 class="mb-2">Queued for Processing</h6>
-                <h2 class="mb-0">{{ queued_count|default:0 }}</h2>
-                <small>Waiting for AI</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card bg-secondary text-white">
-            <div class="card-body">
-                <h6 class="mb-2">Processing</h6>
-                <h2 class="mb-0">{{ processing_count|default:0 }}</h2>
-                <small>Being analyzed by AI</small>
             </div>
         </div>
     </div>
@@ -41,27 +41,43 @@
 <!-- Filters -->
 <div class="card mb-4">
     <div class="card-body">
-        <div class="row">
-            <div class="col-md-4">
-                <input type="text" class="form-control" id="searchInput" placeholder="Search by filename...">
+        <form method="get" id="filterForm">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Search by file name" 
+                           value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="review_status" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="pending" {% if request.GET.review_status == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="reviewed" {% if request.GET.review_status == 'reviewed' %}selected{% endif %}>Reviewed</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <div class="input-group">
+                        <input type="date" name="date_from" class="form-control" 
+                               placeholder="From Date" 
+                               value="{{ request.GET.date_from }}">
+                        <span class="input-group-text">to</span>
+                        <input type="date" name="date_to" class="form-control" 
+                               placeholder="To Date" 
+                               value="{{ request.GET.date_to }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1">
+                            <i class="fas fa-filter me-2"></i>Filter
+                        </button>
+                        <a href="{% url 'inspections:review_queue' %}" class="btn btn-outline-secondary flex-grow-1">
+                            <i class="fas fa-undo me-2"></i>Reset
+                        </a>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-3">
-                <select class="form-select" id="statusFilter">
-                    <option value="">All Status</option>
-                    {% for status_value, status_label in status_choices %}
-                        <option value="{{ status_value }}">{{ status_label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <input type="date" class="form-control" id="dateFilter">
-            </div>
-            <div class="col-md-2">
-                <button class="btn btn-primary w-100" onclick="applyFilters()">
-                    <i class="fas fa-filter me-2"></i>Filter
-                </button>
-            </div>
-        </div>
+        </form>
     </div>
 </div>
 
@@ -69,174 +85,163 @@
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0" id="reviewTable">
+            <table class="table table-hover mb-0">
                 <thead class="bg-light">
                     <tr>
                         <th class="px-4 py-3">File Name</th>
                         <th class="py-3">Upload Date</th>
                         <th class="py-3">Status</th>
                         <th class="py-3">AI Confidence</th>
-                        <th class="py-3">Classification</th>
-                        <th class="py-3">Action</th>
-                        <th class="px-4 py-3">Review</th>
-                    </tr>
-                </thead>
+                        <th class="py-3">Human Override</th>
+                        <th class="px-4 py-3">Action</th>
+                    </thead>
                 <tbody>
-                    {% for inspection in inspections %}
+                    {% for inspection in page_obj %}
                     <tr>
                         <td class="px-4 py-3">
                             <i class="fas fa-file-image me-2 text-primary"></i>
-                            {{ inspection.name }}
-                        </td>
-                        <td class="py-3">{{ inspection.uploaded_at|date:"Y-m-d H:i" }}</td>
+                            {{ inspection.name|truncatechars:40 }}
+                           </td>
+                        <td class="py-3">{{ inspection.uploaded_at|date:"Y-m-d H:i" }} </td>
                         <td class="py-3">
                             <span class="badge 
-                                {% if inspection.status == 'human_review' %}bg-warning
-                                {% elif inspection.status == 'queued' %}bg-secondary
-                                {% elif inspection.status == 'processing' %}bg-info
-                                {% elif inspection.status == 'completed' %}bg-success
-                                {% elif inspection.status == 'failed' %}bg-danger
-                                {% endif %} px-3 py-2">
-                                {{ inspection.get_status_display }}
+                                {% if inspection.human_override %}bg-success
+                                {% else %}bg-warning{% endif %} px-3 py-2"
+                                style="font-size: 0.85rem;">
+                                {% if inspection.human_override %}
+                                    Reviewed
+                                {% else %}
+                                    Pending
+                                {% endif %}
                             </span>
                         </td>
-                        <td class="py-3">
+                        <td class="py-3" style="min-width: 140px;">
                             {% if inspection.ai_confidence %}
-                                <div class="progress" style="height: 20px; width: 100px;">
+                                <div class="progress" style="height: 24px;">
                                     <div class="progress-bar 
                                         {% if inspection.ai_confidence > 0.8 %}bg-success
                                         {% elif inspection.ai_confidence > 0.6 %}bg-warning
                                         {% else %}bg-danger{% endif %}" 
-                                        style="width: {% widthratio inspection.ai_confidence 1 100 %}%">
+                                        style="width: {% widthratio inspection.ai_confidence 1 100 %}%; line-height: 24px; color: white; font-weight: 500;">
+                                        {{ inspection.ai_classification|default:"Pending"|title }} 
                                         {% widthratio inspection.ai_confidence 1 100 %}%
                                     </div>
                                 </div>
                             {% else %}
-                                -
+                                <div class="progress" style="height: 24px;">
+                                    <div class="progress-bar bg-secondary" style="width: 100%; line-height: 24px;">
+                                        Pending -
+                                    </div>
+                                </div>
                             {% endif %}
                         </td>
                         <td class="py-3">
-                            <span class="badge 
-                                {% if inspection.ai_classification == 'good' %}bg-success
-                                {% elif inspection.ai_classification == 'defect' %}bg-danger
-                                {% else %}bg-secondary{% endif %}">
-                                {{ inspection.ai_classification|default:"Pending"|title }}
-                            </span>
-                        </td>
-                        <td class="py-3">
-                            <a href="{% url 'inspections:detail' inspection.id %}" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-eye me-1"></i>View
-                            </a>
+                            {% if inspection.human_override %}
+                                <span class="badge bg-info px-3 py-2">
+                                    <i class="fas fa-check-circle me-1"></i>Yes
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary px-3 py-2">
+                                    <i class="fas fa-times-circle me-1"></i>No
+                                </span>
+                            {% endif %}
                         </td>
                         <td class="px-4 py-3">
-                            <select class="form-select form-select-sm status-update" 
-                                    data-id="{{ inspection.id }}"
-                                    style="width: 140px;">
-                                <option value="">Update Status</option>
-                                <option value="queued">Queue for AI</option>
-                                <option value="processing">Start Processing</option>
-                                <option value="human_review">Human Review</option>
-                                <option value="completed">Mark Completed</option>
-                                <option value="failed">Mark Failed</option>
-                            </select>
+                            <!-- <a href="{% url 'inspections:detail' inspection.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i>{% if inspection.human_override %}View{% else %}Review{% endif %}
+                            </a> -->
+                            <a href="{% url 'inspections:detail' inspection.id %}?from_review_queue=true" class="btn btn-sm btn-outline-primary">
+    <i class="fas fa-eye me-1"></i>{% if inspection.human_override %}View{% else %}Review{% endif %}
+</a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center py-5">
+                        <td colspan="6" class="text-center py-5">
                             <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
                             <h5>No items in review queue</h5>
-                            <p class="text-muted">All caught up! No inspections need review at the moment.</p>
+                            <p class="text-muted">
+                                All inspections have confidence above threshold or have been reviewed already.
+                            </p>
+                            <a href="{% url 'inspections:upload' %}" class="btn btn-primary mt-2">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>Upload New Images
+                            </a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer bg-white border-top-0 py-3">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            <div class="text-center text-muted mt-2 small">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Handle status updates
-document.querySelectorAll('.status-update').forEach(select => {
-    select.addEventListener('change', function() {
-        const inspectionId = this.dataset.id;
-        const newStatus = this.value;
-        
-        if (!newStatus) return;
-        
-        // Show confirmation
-        if (!confirm(`Change status to ${newStatus}?`)) {
-            this.value = '';
-            return;
-        }
-        
-        const formData = new FormData();
-        formData.append('status', newStatus);
-        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-        
-        fetch(`/inspections/api/update-status/${inspectionId}/`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ ' + data.message);
-                window.location.reload();
-            } else {
-                alert('❌ Failed to update: ' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('❌ Error updating status');
-        })
-        .finally(() => {
-            this.value = '';
-        });
+// Auto-submit form when filters change
+document.querySelectorAll('#filterForm select, #filterForm input[type="date"]').forEach(element => {
+    element.addEventListener('change', function() {
+        document.getElementById('filterForm').submit();
     });
 });
 
-// Filter functionality
-function applyFilters() {
-    const search = document.getElementById('searchInput').value.toLowerCase();
-    const status = document.getElementById('statusFilter').value;
-    const date = document.getElementById('dateFilter').value;
-    
-    const rows = document.querySelectorAll('#reviewTable tbody tr');
-    
-    rows.forEach(row => {
-        let show = true;
-        
-        if (search) {
-            const filename = row.cells[0].textContent.toLowerCase();
-            if (!filename.includes(search)) show = false;
-        }
-        
-        if (status && show) {
-            const statusCell = row.cells[2].querySelector('.badge');
-            const statusText = statusCell.textContent.trim().toLowerCase();
-            if (!statusText.includes(status.toLowerCase())) show = false;
-        }
-        
-        if (date && show) {
-            const rowDate = row.cells[1].textContent.split(' ')[0];
-            if (rowDate !== date) show = false;
-        }
-        
-        row.style.display = show ? '' : 'none';
-    });
-}
-
-// Live search
-document.getElementById('searchInput').addEventListener('keyup', applyFilters);
-document.getElementById('statusFilter').addEventListener('change', applyFilters);
-document.getElementById('dateFilter').addEventListener('change', applyFilters);
+// For search, submit only after typing stops (debounce)
+let searchTimeout;
+document.querySelector('input[name="search"]').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        document.getElementById('filterForm').submit();
+    }, 500);
+});
 </script>
 {% endblock %}

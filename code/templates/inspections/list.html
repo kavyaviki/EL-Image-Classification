@@ -6,10 +6,6 @@
 
 {% block content %}
 <div class="row mb-4">
-    <!-- <div class="col-md-8">
-        <h2>EL Image Classification Results</h2>
-        <p class="text-muted">View and manage your inspection results</p>
-    </div> -->
     <div class="col-md-12 text-end">
         <a href="{% url 'inspections:upload' %}" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i>Upload New Images
@@ -17,39 +13,55 @@
     </div>
 </div>
 
-<!-- Filters - Removed Line Filter, Added Date Filter -->
+<!-- Filters - Status Filter (Good, Defective, Review, Pending, Failed) + Date Range Filter -->
 <div class="card mb-4">
     <div class="card-body">
-        <form method="get" class="row g-3" id="filterForm">
-            <div class="col-md-4">
+        <form method="get" class="row g-3 align-items-end" id="filterForm">
+            <div class="col-md-3">
                 <input type="text" name="search" class="form-control" 
-                       placeholder="Search by image ID, batch ID..." 
+                       placeholder="Search by file name" 
                        value="{{ request.GET.search }}">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <select name="status" class="form-select">
                     <option value="">All Status</option>
-                    {% for status_value, status_label in status_choices %}
-                        <option value="{{ status_value }}" {% if request.GET.status == status_value %}selected{% endif %}>
-                            {{ status_label }}
-                        </option>
-                    {% endfor %}
+                    <option value="good" {% if request.GET.status == 'good' %}selected{% endif %}>Good</option>
+                    <option value="defect" {% if request.GET.status == 'defect' %}selected{% endif %}>Defective</option>
+                    <option value="review" {% if request.GET.status == 'review' %}selected{% endif %}>Review</option>
+                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>Failed</option>
                 </select>
             </div>
-            <div class="col-md-3">
-                <input type="date" name="date" class="form-control" 
-                       placeholder="Filter by Date" 
-                       value="{{ request.GET.date }}">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <input type="date" name="date_from" class="form-control" 
+                           placeholder="From Date" 
+                           value="{{ request.GET.date_from }}">
+                    <span class="input-group-text">to</span>
+                    <input type="date" name="date_to" class="form-control" 
+                           placeholder="To Date" 
+                           value="{{ request.GET.date_to }}">
+                    {% if request.GET.date_from or request.GET.date_to %}
+                    <a href="?{% for key, value in request.GET.items %}{% if key != 'date_from' and key != 'date_to' %}{{ key }}={{ value }}&{% endif %}{% endfor %}" 
+                       class="btn btn-outline-secondary" title="Clear date filter">
+                        <i class="fas fa-times"></i>
+                    </a>
+                    {% endif %}
+                </div>
             </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="fas fa-filter me-2"></i>Filter
-                </button>
+            <div class="col-md-3">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-2"></i>Filter
+                    </button>
+                    <a href="{% url 'inspections:list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-undo me-2"></i>Reset
+                    </a>
+                </div>
             </div>
         </form>
     </div>
 </div>
-
 <!-- Results Table -->
 <div class="card">
     <div class="card-body p-0">
@@ -74,24 +86,20 @@
                         <td class="py-3">{{ inspection.uploaded_at|date:"Y-m-d H:i" }}</td>
                         <td class="py-3">
                             <span class="badge 
-                                {% if inspection.status == 'completed' %}bg-success
-                                {% elif inspection.status == 'failed' %}bg-danger
-                                {% elif inspection.status == 'queued' %}bg-secondary
-                                {% elif inspection.status == 'processing' %}bg-info
-                                {% elif inspection.status == 'human_review' %}bg-warning
+                                {% if inspection.display_status == 'good' %}bg-success
+                                {% elif inspection.display_status == 'defect' %}bg-danger
+                                {% elif inspection.display_status == 'review' %}bg-warning
+                                {% elif inspection.display_status == 'pending' %}bg-secondary
+                                {% elif inspection.display_status == 'failed' %}bg-danger
                                 {% else %}bg-secondary{% endif %} px-3 py-2">
-                                {{ inspection.get_status_display }}
+                                {{ inspection.display_status|title }}
                             </span>
-                            {% if inspection.status == 'completed' and inspection.ai_classification %}
-                                <br>
-                                <small class="text-muted">{{ inspection.ai_classification|title }}</small>
-                            {% endif %}
                         </td>
                         <td class="py-3">
                             {% if inspection.ai_confidence %}
                                 <div class="progress" style="height: 20px; width: 100px;">
                                     <div class="progress-bar 
-                                        {% if inspection.ai_confidence > 0.8 %}bg-success
+                                        {% if inspection.ai_confidence > review_threshold %}bg-success
                                         {% elif inspection.ai_confidence > 0.6 %}bg-warning
                                         {% else %}bg-danger{% endif %}" 
                                         style="width: {% widthratio inspection.ai_confidence 1 100 %}%">
@@ -131,12 +139,12 @@
                 <ul class="pagination justify-content-center mb-0">
                     {% if page_obj.has_previous %}
                         <li class="page-item">
-                            <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">
+                            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
                                 <i class="fas fa-angle-double-left"></i>
                             </a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
                                 <i class="fas fa-angle-left"></i>
                             </a>
                         </li>
@@ -147,7 +155,7 @@
                             <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                         {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">
+                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
                                     {{ num }}
                                 </a>
                             </li>
@@ -156,12 +164,12 @@
                     
                     {% if page_obj.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
                                 <i class="fas fa-angle-right"></i>
                             </a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
                                 <i class="fas fa-angle-double-right"></i>
                             </a>
                         </li>
@@ -179,13 +187,20 @@
 
 {% block extra_js %}
 <script>
-// Auto-submit form when filters change (optional)
-document.querySelectorAll('#filterForm select, #filterForm input').forEach(element => {
-    if (element.name !== 'search') {
-        element.addEventListener('change', function() {
-            document.getElementById('filterForm').submit();
-        });
-    }
+// Auto-submit form when filters change (except search to prevent too many requests)
+document.querySelectorAll('#filterForm select, #filterForm input[type="date"]').forEach(element => {
+    element.addEventListener('change', function() {
+        document.getElementById('filterForm').submit();
+    });
+});
+
+// For search, submit only after typing stops (debounce)
+let searchTimeout;
+document.querySelector('input[name="search"]').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        document.getElementById('filterForm').submit();
+    }, 500);
 });
 </script>
 {% endblock %}

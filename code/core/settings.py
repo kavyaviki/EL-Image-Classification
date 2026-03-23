@@ -165,3 +165,6 @@ AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default='')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default='')
 AWS_STORAGE_BUCKET_NAME = config('S3_BUCKET', default='')
 AWS_S3_REGION = config('AWS_REGION', default='ap-south-1')
+
+# Review threshold: images with confidence below this will be marked as "Review"
+REVIEW_CONFIDENCE_THRESHOLD = config('REVIEW_CONFIDENCE_THRESHOLD', default='0.8')  # 80% - change this value as needed
