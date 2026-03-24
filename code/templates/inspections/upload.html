@@ -173,6 +173,8 @@ function submitUpload() {
     const formData = new FormData();
     selectedFiles.forEach(file => {
         formData.append('images', file);
+        const freshFile = new File([file], file.name, { type: file.type });
+        formData.append('images', freshFile);
     });
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 

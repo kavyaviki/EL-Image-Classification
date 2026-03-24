@@ -643,30 +643,18 @@ def serve_image(request, inspection_id):
 def upload_inspection(request):
     """
     API endpoint to handle image uploads.
-    
-    This is called via AJAX from the upload page.
-    It forwards images to the AI service and creates inspection records.
-    
-    URL: /inspections/api/upload/
-    Method: POST
-    
-    Expected form data:
-        images: One or more image files
-    
-    Returns:
-        JsonResponse: Success status and job_id, or error message
-        
-    Flow:
-        1. Get uploaded files from request
-        2. Submit to AI service via ai_client.submit_images()
-        3. Create Inspection records in database with status='queued'
-        4. Return job_id to frontend for tracking
     """
     # Validate that files were uploaded
     if not request.FILES.getlist('images'):
         return JsonResponse({'error': 'No images uploaded'}, status=400)
     
     files = request.FILES.getlist('images')
+    
+    # ========== CRITICAL: Reset file pointers to beginning ==========
+    # This ensures we read the complete file content
+    for file in files:
+        file.seek(0)
+    
     ai_client = AIServiceClient()
     
     # Submit to AI service
@@ -677,8 +665,10 @@ def upload_inspection(request):
     
     # Create inspection records for each file
     for file in files:
-        # Construct the S3 key where the AI service will store the image
-        # Format: uploads/{job_id}/{filename}
+        # Reset pointer again (extra safety)
+        file.seek(0)
+        
+        # Construct the S3 key
         s3_key = f"uploads/{result['job_id']}/{file.name}"
         
         Inspection.objects.create(
@@ -686,7 +676,7 @@ def upload_inspection(request):
             uploaded_by=request.user,
             job_id=result['job_id'],
             status='queued',
-            s3_key=s3_key  # Store for later image retrieval
+            s3_key=s3_key
         )
     
     return JsonResponse({
