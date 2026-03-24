@@ -1,8 +1,264 @@
 {% extends 'base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Analytics Dashboard{% endblock %}
+{% block title %}Analytics & Insights{% endblock %}
+{% block page_title %}Analytics & Insights{% endblock %}
+{% block page_subtitle %}Performance analytics and inspection trends{% endblock %}
 
-{% block page_title %}AI Classification Setup Metrics{% endblock %}
-{% block page_subtitle %}Performance analytics and insights{% endblock %}
+{% block content %}
 
+<!-- 1. FILTER -->
+<div class="bg-white rounded-3 shadow-sm p-3 mb-4">
+    <form method="get" class="d-flex flex-wrap gap-3 align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fas fa-calendar text-muted"></i>
+            <select name="date_range" class="form-select" style="width:200px;" onchange="this.form.submit()">
+                {% for opt in date_range_options %}
+                    <option value="{{ opt.value }}" {% if date_range == opt.value %}selected{% endif %}>
+                        {{ opt.label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <a href="{% url 'inspections:analytics' %}" class="btn btn-outline-secondary ms-auto">
+            <i class="fas fa-undo me-1"></i> Reset
+        </a>
+    </form>
+</div>
+
+<!-- 2. KPI CARDS -->
+<div class="row g-4 mb-5">
+    <!-- Total Panels -->
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="border-top: 4px solid #3b82f6;">
+            <div class="card-body">
+                <p class="text-muted mb-1">Total Panels Inspected</p>
+                <h2 class="fw-bold mb-1">{{ total_panels }}</h2>
+                <div class="text-success fw-semibold small">
+                    <i class="fas fa-arrow-trend-up"></i> {{ total_change }}%
+                </div>
+                <canvas id="sparkline" height="55"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Good Panels -->
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="border-top: 4px solid #10b981;">
+            <div class="card-body">
+                <p class="text-muted mb-1">Good Panels</p>
+                <h2 class="fw-bold mb-1">{{ good_percentage }}%</h2>
+                <p class="text-muted small mb-2">{{ good_panels }} panels</p>
+                <div class="text-success fw-semibold small">
+                    <i class="fas fa-arrow-trend-up"></i> {{ good_change }}%
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Defective Panels -->
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="border-top: 4px solid #ef4444;">
+            <div class="card-body">
+                <p class="text-muted mb-1">Defective Panels</p>
+                <h2 class="fw-bold mb-1">{{ defective_percentage }}%</h2>
+                <p class="text-muted small mb-2">{{ defective_panels }} panels</p>
+                <div class="text-danger fw-semibold small">
+                    <i class="fas fa-arrow-trend-down"></i> {{ defective_change }}%
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Human Review Required -->
+    <div class="col-lg-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="border-top: 4px solid #f59e0b;">
+            <div class="card-body">
+                <p class="text-muted mb-1">Human Review Required</p>
+                <h2 class="fw-bold mb-1">{{ human_review_percentage }}%</h2>
+                <p class="text-muted small mb-2">{{ human_review_required }} panels</p>
+                <div class="text-warning fw-semibold small">
+                    <i class="fas fa-arrow-trend-up"></i> {{ review_change }}%
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. DEFECT TRENDS OVER TIME -->
+<div class="card shadow-sm mb-5">
+    <div class="card-body">
+        <h5 class="mb-1">Defect Trends Over Time</h5>
+        <p class="text-muted small mb-3">Historical defect and doubtful case trends</p>
+        <canvas id="trendChart" height="110"></canvas>
+    </div>
+</div>
+
+<!-- 4 & 5. COMPACT SIDE-BY-SIDE CHARTS -->
+<div class="row g-4 mb-4">
+    
+    <!-- Defect Rate per Assembly Line -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body pb-2">
+                <h5 class="mb-2">Defect Rate per Assembly Line</h5>
+                <p class="text-muted small mb-3">Click bar to filter Results page</p>
+                <div style="height: 240px;">
+                    <canvas id="lineDefectChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Type Distribution -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body pb-2">
+                <h5 class="mb-2">Defect Type Distribution</h5>
+                <p class="text-muted small mb-3">Good vs Defective vs Human Override</p>
+                <div style="height: 240px;">
+                    <canvas id="typeDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 6. AI PERFORMANCE METRICS -->
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h5 class="mb-3">AI Performance Metrics</h5>
+        <p class="text-muted small mb-4">Based on available ground truth</p>
+        
+        <div class="row g-4">
+            <!-- Auto-Classification Rate -->
+            <div class="col-lg-6">
+                <div class="card h-100" style="background-color: #f0f9ff; border: 1px solid #bae6fd;">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <p class="text-muted mb-2">Auto-Classification Rate</p>
+                                <h2 class="fw-bold text-primary mb-1">{{ auto_classification_rate }}%</h2>
+                                <p class="text-muted small">No human intervention needed</p>
+                            </div>
+                            <i class="fas fa-info-circle text-info fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Human Override Rate -->
+            <div class="col-lg-6">
+                <div class="card h-100" style="background-color: #fefce8; border: 1px solid #fde047;">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <p class="text-muted mb-2">Human Override Rate</p>
+                                <h2 class="fw-bold text-amber-600 mb-1">{{ human_override_rate }}%</h2>
+                                <p class="text-muted small">AI decision changed by human</p>
+                            </div>
+                            <i class="fas fa-info-circle text-amber-600 fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const labels = {{ chart_labels|safe }};
+    const good = {{ good_values|safe }};
+    const defective = {{ defective_values|safe }};
+    const human = {{ human_values|safe }};
+    const sparkline = {{ sparkline_values|safe }};
+
+    // Sparkline
+    new Chart(document.getElementById('sparkline'), {
+        type: 'line',
+        data: { labels: labels, datasets: [{ data: sparkline, borderColor: '#3b82f6', borderWidth: 2, tension: 0.4, pointRadius: 0 }] },
+        options: { plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } }
+    });
+
+    // Defect Trends Over Time
+    new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Good', data: good, borderColor: '#10b981', tension: 0.4, borderWidth: 3 },
+                { label: 'Defective', data: defective, borderColor: '#ef4444', tension: 0.4, borderWidth: 3 },
+                { label: 'Human Decision', data: human, borderColor: '#f59e0b', tension: 0.4, borderWidth: 3 }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // Compact Horizontal Bar Chart
+    new Chart(document.getElementById('lineDefectChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Line 1', 'Line 2', 'Line 3', 'Line 4', 'Line A', 'Line B'],
+            datasets: [{
+                label: 'Defect Rate (%)',
+                data: [8.5, 13.2, 6.8, 14.8, 7.9, 9.5],
+                backgroundColor: ['#fbbf24', '#ef4444', '#fbbf24', '#ef4444', '#fbbf24', '#fbbf24'],
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true, max: 16, ticks: { font: { size: 11 } } },
+                y: { ticks: { font: { size: 12 } } }
+            }
+        }
+    });
+
+    // Compact Radar Chart
+    new Chart(document.getElementById('typeDistributionChart'), {
+        type: 'radar',
+        data: {
+            labels: {{ distribution_labels|safe }},
+            datasets: [{
+                data: {{ distribution_values|safe }},
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                borderColor: '#3b82f6',
+                borderWidth: 2,
+                pointBackgroundColor: '#3b82f6',
+                pointRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { stepSize: 25, font: { size: 10 } }
+                }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+});
+</script>
+{% endblock %}

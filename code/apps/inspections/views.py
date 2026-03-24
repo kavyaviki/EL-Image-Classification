@@ -432,73 +432,160 @@ def review_queue(request):
 
 @login_required
 def analytics_dashboard(request):
-    """
-    Display analytics and insights dashboard.
-    
-    Shows statistics about:
-    - Total inspections
-    - Good vs Defective panels
-    - Human override rate
-    - Trend data over last 7 days
-    
-    URL: /inspections/analytics/
-    Template: inspections/analytics.html
-    
-    Returns:
-        HttpResponse: Rendered analytics dashboard
-    """
-    # ============================================================
-    # BASIC STATISTICS
-    # ============================================================
-    total_inspections = Inspection.objects.filter(uploaded_by=request.user).count()
-    
-    good_count = Inspection.objects.filter(
-        uploaded_by=request.user,
-        ai_classification='good'
-    ).count()
-    
-    defective_count = Inspection.objects.filter(
-        uploaded_by=request.user,
-        ai_classification='defect'
-    ).count()
-    
-    override_count = Inspection.objects.filter(
-        uploaded_by=request.user,
-        human_override=True
-    ).count()
-    
-    # Calculate percentages
-    good_percentage = (good_count / total_inspections * 100) if total_inspections > 0 else 0
-    defective_percentage = (defective_count / total_inspections * 100) if total_inspections > 0 else 0
-    override_percentage = (override_count / total_inspections * 100) if total_inspections > 0 else 0
-    
-    # ============================================================
-    # TREND DATA (LAST 7 DAYS)
-    # ============================================================
-    last_7_days = []
-    for i in range(6, -1, -1):
-        date = timezone.now().date() - timedelta(days=i)
-        count = Inspection.objects.filter(
-            uploaded_by=request.user,
-            uploaded_at__date=date
-        ).count()
-        last_7_days.append({
-            'date': date.strftime('%b %d'),
-            'count': count
-        })
-    
-    context = {
-        'total_inspections': total_inspections,
-        'good_count': good_count,
-        'defective_count': defective_count,
-        'override_count': override_count,
-        'good_percentage': round(good_percentage, 1),
-        'defective_percentage': round(defective_percentage, 1),
-        'override_percentage': round(override_percentage, 1),
-        'trend_data': last_7_days,
-    }
-    return render(request, 'inspections/analytics.html', context)
+    # ====================== CONFIG ======================
+    review_threshold = float(getattr(settings, 'REVIEW_CONFIDENCE_THRESHOLD', 0.8))
 
+    # ====================== FILTER ======================
+    date_range = request.GET.get('date_range', '7')
+    days = int(date_range)
+
+    today = timezone.now().date()
+    start_date = today - timedelta(days=days - 1)
+
+    # ====================== BASE QUERY ======================
+    base_qs = Inspection.objects.filter(
+        uploaded_by=request.user,
+        status='completed',
+        uploaded_at__date__gte=start_date
+    )
+
+    # ====================== KPI CALCULATIONS ======================
+    total_panels = base_qs.count()
+
+    good_panels = base_qs.filter(
+        Q(ai_classification='good', ai_confidence__gte=review_threshold) |
+        Q(human_override=True, override__new_classification='good')
+    ).count()
+
+    defective_panels = base_qs.filter(
+        Q(ai_classification='defect', ai_confidence__gte=review_threshold) |
+        Q(human_override=True, override__new_classification='defect')
+    ).count()
+
+    human_review_required = base_qs.filter(
+        ai_confidence__lt=review_threshold,
+        human_override=False
+    ).count()
+
+    def safe_pct(part, total):
+        return round((part / total * 100), 1) if total > 0 else 0
+
+    good_percentage = safe_pct(good_panels, total_panels)
+    defective_percentage = safe_pct(defective_panels, total_panels)
+    human_review_percentage = safe_pct(human_review_required, total_panels)
+
+    # AI Performance Metrics
+    total_completed = total_panels
+    auto_classified = base_qs.filter(
+        ai_confidence__gte=review_threshold, human_override=False
+    ).count()
+    human_overridden = base_qs.filter(human_override=True).count()
+
+    auto_classification_rate = safe_pct(auto_classified, total_completed)
+    human_override_rate = safe_pct(human_overridden, total_completed)
+
+    # ====================== PREVIOUS PERIOD COMPARISON ======================
+    prev_start = start_date - timedelta(days=days)
+    prev_end = start_date - timedelta(days=1)
+
+    prev_qs = Inspection.objects.filter(
+        uploaded_by=request.user,
+        status='completed',
+        uploaded_at__date__gte=prev_start,
+        uploaded_at__date__lte=prev_end
+    )
+
+    prev_total = prev_qs.count()
+    prev_good = prev_qs.filter(
+        Q(ai_classification='good', ai_confidence__gte=review_threshold) |
+        Q(human_override=True, override__new_classification='good')
+    ).count()
+    prev_defective = prev_qs.filter(
+        Q(ai_classification='defect', ai_confidence__gte=review_threshold) |
+        Q(human_override=True, override__new_classification='defect')
+    ).count()
+    prev_human = prev_qs.filter(
+        ai_confidence__lt=review_threshold, human_override=False
+    ).count()
+
+    def pct_change(curr, prev):
+        return round(((curr - prev) / prev * 100), 1) if prev > 0 else 0
+
+    total_change = pct_change(total_panels, prev_total)
+    good_change = pct_change(good_panels, prev_good)
+    defective_change = pct_change(defective_panels, prev_defective)
+    review_change = pct_change(human_review_required, prev_human)
+
+    # ====================== TREND DATA ======================
+    trend_qs = base_qs.values('uploaded_at__date').annotate(
+        good=Count('id', filter=Q(ai_classification='good', ai_confidence__gte=review_threshold) |
+                             Q(human_override=True, override__new_classification='good')),
+        defective=Count('id', filter=Q(ai_classification='defect', ai_confidence__gte=review_threshold) |
+                                   Q(human_override=True, override__new_classification='defect')),
+        human=Count('id', filter=Q(ai_confidence__lt=review_threshold, human_override=False))
+    ).order_by('uploaded_at__date')
+
+    trend_dict = {entry['uploaded_at__date']: entry for entry in trend_qs}
+
+    chart_labels = []
+    good_values = []
+    defective_values = []
+    human_values = []
+    sparkline_values = []
+
+    for i in range(days):
+        date = start_date + timedelta(days=i)
+        label = date.strftime('%b %d')
+        data = trend_dict.get(date, {'good': 0, 'defective': 0, 'human': 0})
+
+        chart_labels.append(label)
+        good_values.append(data.get('good', 0))
+        defective_values.append(data.get('defective', 0))
+        human_values.append(data.get('human', 0))
+        sparkline_values.append(data.get('good', 0) + data.get('defective', 0) + data.get('human', 0))
+
+    # ====================== CONTEXT ======================
+    context = {
+        'date_range': date_range,
+        'date_range_options': [
+            {'value': '7', 'label': 'Last 7 Days'},
+            {'value': '10', 'label': 'Last 10 Days'},
+            {'value': '15', 'label': 'Last 15 Days'},
+            {'value': '20', 'label': 'Last 20 Days'},
+            {'value': '25', 'label': 'Last 25 Days'},
+            {'value': '30', 'label': 'Last 30 Days'},
+        ],
+
+        # KPI Cards
+        'total_panels': total_panels,
+        'total_change': total_change,
+        'good_percentage': good_percentage,
+        'good_panels': good_panels,
+        'good_change': good_change,
+        'defective_percentage': defective_percentage,
+        'defective_panels': defective_panels,
+        'defective_change': defective_change,
+        'human_review_percentage': human_review_percentage,
+        'human_review_required': human_review_required,
+        'review_change': review_change,
+
+        # AI Performance Metrics
+        'auto_classification_rate': auto_classification_rate,
+        'human_override_rate': human_override_rate,
+
+        # Type Distribution (Radar)
+        'distribution_labels': ['Good', 'Defective', 'Human Override'],
+        'distribution_values': [good_percentage, defective_percentage, human_review_percentage],
+
+        # Charts
+        'chart_labels': chart_labels,
+        'good_values': good_values,
+        'defective_values': defective_values,
+        'human_values': human_values,
+        'sparkline_values': sparkline_values,
+    }
+
+    return render(request, 'inspections/analytics.html', context)
 
 # ============================================================================
 # IMAGE SERVING (For private S3 buckets)
