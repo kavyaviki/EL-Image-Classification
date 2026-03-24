@@ -14,10 +14,10 @@
                 <form id="uploadForm" enctype="multipart/form-data">
                     {% csrf_token %}
                     
-                    <!-- Upload Area - Exactly like Image 1 -->
+                    <!-- Upload Area - Fixed click handling -->
                     <div class="upload-area text-center p-5 border border-2 border-dashed rounded-3 mb-4" 
                          style="cursor: pointer; background-color: #f8f9fa; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"
-                         onclick="document.getElementById('fileInput').click()"
+                         id="uploadArea"
                          ondragover="event.preventDefault(); this.classList.add('border-primary', 'bg-light');"
                          ondragleave="this.classList.remove('border-primary', 'bg-light');"
                          ondrop="handleDrop(event)">
@@ -26,14 +26,13 @@
                         <h4 class="mb-2">Drag & drop EL images here</h4>
                         <p class="text-muted mb-3">or</p>
                         
-                        <button type="button" class="btn btn-outline-primary px-4 py-2" onclick="document.getElementById('fileInput').click()">
+                        <button type="button" class="btn btn-outline-primary px-4 py-2" id="browseBtn">
                             Browse Files
                         </button>
                         
-                        <input type="file" id="fileInput" name="images" multiple accept="image/*" style="display: none;" onchange="handleFiles(this.files)">
+                        <input type="file" id="fileInput" name="images" multiple accept="image/*" style="display: none;">
                         
                         <div class="mt-4 text-muted small">
-                            <!-- <i class="fas fa-info-circle me-1"></i> -->
                             Supported formats: PNG, JPG • Max file size: 50MB
                         </div>
                     </div>
@@ -43,7 +42,7 @@
 
                     <!-- Upload Button -->
                     <div class="text-center">
-                        <button type="button" id="submitBtn" class="btn btn-primary px-5 py-2" disabled onclick="submitUpload()">
+                        <button type="button" id="submitBtn" class="btn btn-primary px-5 py-2" disabled>
                             <i class="fas fa-upload me-2"></i>Upload Images
                         </button>
                     </div>
@@ -65,10 +64,8 @@
                                 <th class="px-4">File Name</th>
                                 <th>Uploaded</th>
                                 <th>Status</th>
-                                <!-- <th>Job ID</th> -->
                                 <th class="px-4">Action</th>
-                            </tr>
-                        </thead>
+                            </thead>
                         <tbody>
                             {% for inspection in recent_inspections %}
                             <tr>
@@ -79,7 +76,6 @@
                                         {{ inspection.get_status_display }}
                                     </span>
                                 </td>
-                                <!-- <td><code>{{ inspection.job_id|truncatechars:12 }}</code></td> -->
                                 <td class="px-4">
                                     <a href="{% url 'inspections:detail' inspection.id %}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i> View
@@ -88,7 +84,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center py-5 text-muted">
+                                <td colspan="4" class="text-center py-5 text-muted">
                                     <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
                                     <p>No uploads yet. Start by uploading images above.</p>
                                 </td>
@@ -139,7 +135,7 @@ function updatePreview() {
                     <div class="card h-100">
                         <div class="card-body text-center p-3">
                             <i class="fas fa-file-image fa-3x text-primary mb-2"></i>
-                            <p class="small text-truncate mb-1">${file.name}</p>
+                            <p class="small text-truncate mb-1">${escapeHtml(file.name)}</p>
                             <small class="text-muted">${fileSize} MB</small>
                             <button type="button" class="btn btn-sm btn-danger mt-2" onclick="removeFile(${index})">
                                 <i class="fas fa-times"></i>
@@ -164,7 +160,12 @@ function removeFile(index) {
     updatePreview();
 }
 
-function submitUpload() {
+function submitUpload(event) {
+    // Prevent event bubbling to parent elements
+    if (event) {
+        event.stopPropagation();
+    }
+    
     if (selectedFiles.length === 0) {
         alert('Please select files to upload');
         return;
@@ -172,9 +173,8 @@ function submitUpload() {
 
     const formData = new FormData();
     selectedFiles.forEach(file => {
+        // Append each file only once (fixed duplicate issue)
         formData.append('images', file);
-        const freshFile = new File([file], file.name, { type: file.type });
-        formData.append('images', freshFile);
     });
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
@@ -193,22 +193,71 @@ function submitUpload() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(`✅ Success! Job ID: ${data.job_id}`);
+            alert(`✅ Success! ${data.file_count} image(s) uploaded. Job ID: ${data.job_id}`);
             window.location.reload();
         } else {
             alert('❌ Upload failed: ' + (data.error || 'Unknown error'));
+            // Re-enable button on failure
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
         }
     })
     .catch(error => {
         console.error('Error:', error);
         alert('❌ Upload failed: ' + error.message);
-    })
-    .finally(() => {
+        // Re-enable button on error
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     });
 }
 
+// Helper function to escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Setup event listeners when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const browseBtn = document.getElementById('browseBtn');
+    const fileInput = document.getElementById('fileInput');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Handle click on upload area (but not on browse button)
+    if (uploadArea) {
+        uploadArea.addEventListener('click', function(e) {
+            // Don't trigger if clicking on browse button
+            if (browseBtn && (e.target === browseBtn || browseBtn.contains(e.target))) {
+                return;
+            }
+            fileInput.click();
+        });
+    }
+    
+    // Handle browse button click
+    if (browseBtn) {
+        browseBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent bubbling to upload area
+            fileInput.click();
+        });
+    }
+    
+    // Handle file input change
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            handleFiles(this.files);
+        });
+    }
+    
+    // Handle upload button click
+    if (submitBtn) {
+        submitBtn.addEventListener('click', submitUpload);
+    }
+});
+
+// Global drag and drop prevention
 document.addEventListener('dragover', (e) => e.preventDefault());
 document.addEventListener('drop', (e) => e.preventDefault());
 </script>
