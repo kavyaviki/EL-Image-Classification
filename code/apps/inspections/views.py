@@ -230,26 +230,7 @@ def inspection_list(request):
 def inspection_detail(request, pk):
     """
     Show detailed view of a single inspection.
-    
-    This page displays:
-    - The original image (via presigned URL)
-    - AI classification results (confidence, defects, explanation)
-    - Human override form
-    - Classification history
-    
-    If the inspection is still queued/processing, it attempts to fetch
-    results from S3 and update the record automatically.
-    
-    URL: /inspections/<uuid:pk>/
-    Template: inspections/detail.html
-    
-    Args:
-        pk: UUID of the inspection to display
-        
-    Returns:
-        HttpResponse: Rendered detail page with inspection data
     """
-    # Get the inspection or return 404 if not found or not owned by user
     inspection = get_object_or_404(Inspection, pk=pk, uploaded_by=request.user)
     
     # ============================================================
@@ -263,12 +244,10 @@ def inspection_detail(request, pk):
         )
         
         if results:
-            # Update inspection with AI results
             inspection.status = 'completed'
             inspection.ai_classification = results.get('prediction')
             inspection.ai_confidence = results.get('confidence')
             inspection.ai_processed_at = results.get('processed_at')
-            
             inspection.save()
     
     # ============================================================
@@ -282,8 +261,6 @@ def inspection_detail(request, pk):
     # ============================================================
     # CHECK WHERE USER CAME FROM (for back button navigation)
     # ============================================================
-    # If coming from review queue, back button goes to review queue
-    # If coming from results dashboard, back button goes to results list
     from_review_queue = request.GET.get('from_review_queue', 'false') == 'true'
     
     # ============================================================
@@ -291,40 +268,48 @@ def inspection_detail(request, pk):
     # ============================================================
     next_inspection = None
     previous_inspection = None
+    current_index = 0
+    total_count = 0
     
+    # Get the appropriate list based on where user came from
     if from_review_queue:
-        # Get all pending review items (same logic as review_queue view)
+        # For review queue: get all pending review items
         review_threshold = getattr(settings, 'REVIEW_CONFIDENCE_THRESHOLD', 0.8)
         try:
             review_threshold = float(review_threshold)
         except (ValueError, TypeError):
             review_threshold = 0.8
         
-        # Get all pending inspections (same filter as review_queue)
         all_inspections = Inspection.objects.filter(
             uploaded_by=request.user,
             status='completed',
             ai_confidence__lt=review_threshold,
             human_override=False
         ).order_by('-uploaded_at')
-        
-        # Convert to list and find current position
-        inspection_ids = list(all_inspections.values_list('id', flat=True))
-        
-        if inspection_ids:
-            try:
-                current_index = inspection_ids.index(inspection.id)
+    else:
+        # For results dashboard: get all completed inspections
+        all_inspections = Inspection.objects.filter(
+            uploaded_by=request.user,
+            status='completed'
+        ).order_by('-uploaded_at')
+    
+    total_count = all_inspections.count()
+    inspection_ids = list(all_inspections.values_list('id', flat=True))
+    
+    if inspection_ids:
+        try:
+            current_index = inspection_ids.index(inspection.id) + 1  # 1-based index for display
+            
+            # Get previous inspection (older)
+            if current_index - 2 >= 0:
+                previous_inspection = Inspection.objects.get(id=inspection_ids[current_index - 2])
+            
+            # Get next inspection (newer)
+            if current_index < len(inspection_ids):
+                next_inspection = Inspection.objects.get(id=inspection_ids[current_index])
                 
-                # Get previous inspection (older)
-                if current_index + 1 < len(inspection_ids):
-                    previous_inspection = Inspection.objects.get(id=inspection_ids[current_index + 1])
-                
-                # Get next inspection (newer)
-                if current_index - 1 >= 0:
-                    next_inspection = Inspection.objects.get(id=inspection_ids[current_index - 1])
-            except ValueError:
-                # Current inspection not in list (shouldn't happen, but just in case)
-                pass
+        except ValueError:
+            pass
     
     context = {
         'inspection': inspection,
@@ -333,6 +318,8 @@ def inspection_detail(request, pk):
         'from_review_queue': from_review_queue,
         'next_inspection': next_inspection,
         'previous_inspection': previous_inspection,
+        'current_index': current_index,
+        'total_count': total_count,
     }
     return render(request, 'inspections/detail.html', context)
 
