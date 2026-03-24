@@ -669,8 +669,9 @@ def upload_inspection(request):
         file.seek(0)
         
         # Construct the S3 key
-        s3_key = f"uploads/{result['job_id']}/{file.name}"
-        
+        # s3_key = f"uploads/{result['job_id']}/{file.name}"
+        s3_key = f"jobs/{result['job_id']}/input/{file.name}"
+
         Inspection.objects.create(
             name=file.name,
             uploaded_by=request.user,
