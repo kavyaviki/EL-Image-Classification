@@ -56,7 +56,9 @@
                 </div>
                 <div class="d-flex justify-content-between">
                     <span>Pending Review</span>
-                    <span class="badge bg-secondary">{{ stats.pending_review }}</span>
+                    <span class="badge {% if stats.pending_review > 0 %}bg-warning{% else %}bg-secondary{% endif %}">
+                        {{ stats.pending_review }}
+                    </span>
                 </div>
             </div>
         </div>

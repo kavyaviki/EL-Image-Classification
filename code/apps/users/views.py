@@ -9,6 +9,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
+from django.conf import settings
 from .models import User
 from .forms import CustomUserCreationForm, CustomUserChangeForm, LoginForm
 from apps.inspections.models import Inspection
@@ -84,6 +85,13 @@ def profile_view(request):
     """
     View user profile with dynamic stats
     """
+    # Get review threshold from settings
+    review_threshold = getattr(settings, 'REVIEW_CONFIDENCE_THRESHOLD', 0.8)
+    try:
+        review_threshold = float(review_threshold)
+    except (ValueError, TypeError):
+        review_threshold = 0.8
+
     # Get stats for the current user
     total_uploads = Inspection.objects.filter(uploaded_by=request.user).count()
     
@@ -104,7 +112,9 @@ def profile_view(request):
     
     pending_review = Inspection.objects.filter(
         uploaded_by=request.user,
-        status='human_review'
+        status='completed',
+        ai_confidence__lt=review_threshold,
+        human_override=False
     ).count()
     
     stats = {

@@ -13,6 +13,22 @@
     </div>
 </div>
 
+<!-- Auto-refresh Status Bar -->
+<!-- <div class="alert alert-info alert-dismissible fade show mb-3" role="alert" id="autoRefreshAlert">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <i class="fas fa-sync-alt me-2" id="refreshIcon"></i>
+            <strong>Auto-refresh active</strong> - Page refreshes every 10 seconds to show updated results
+        </div>
+        <div>
+            <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="toggleAutoRefresh()">
+                <i class="fas fa-pause me-1"></i>Pause
+            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+</div> -->
+
 <!-- Filters - Status Filter (Good, Defective, Review, Pending, Failed) + Date Range Filter -->
 <div class="card mb-4">
     <div class="card-body">
@@ -62,6 +78,7 @@
         </form>
     </div>
 </div>
+
 <!-- Results Table -->
 <div class="card">
     <div class="card-body p-0">
@@ -72,13 +89,13 @@
                         <th class="px-4 py-3">File Name</th>
                         <th class="py-3">Date</th>
                         <th class="py-3">Status</th>
+                        <th class="py-3">Decision Source</th>
                         <th class="py-3">AI Confidence</th>
                         <th class="px-4 py-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
+                    </thead>
+                <tbody id="resultsTableBody">
                     {% for inspection in page_obj %}
-                    <tr>
+                    <tr class="inspection-row" data-inspection-id="{{ inspection.id }}">
                         <td class="px-4 py-3">
                             <i class="fas fa-file-image me-2 text-primary"></i>
                             {{ inspection.name|truncatechars:30 }}
@@ -96,15 +113,30 @@
                             </span>
                         </td>
                         <td class="py-3">
+                            {% if inspection.human_override %}
+                                <span class="badge bg-warning text-dark px-3 py-2">
+                                    <i class="fas fa-user-check me-1"></i>Human Override
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary px-3 py-2">
+                                    <i class="fas fa-robot me-1"></i>AI Classified
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3">
                             {% if inspection.ai_confidence %}
-                                <div class="progress" style="height: 20px; width: 100px;">
-                                    <div class="progress-bar 
-                                        {% if inspection.ai_confidence > review_threshold %}bg-success
-                                        {% elif inspection.ai_confidence > 0.6 %}bg-warning
-                                        {% else %}bg-danger{% endif %}" 
-                                        style="width: {% widthratio inspection.ai_confidence 1 100 %}%">
-                                        {% widthratio inspection.ai_confidence 1 100 %}%
+                                <div class="d-flex align-items-center gap-2" style="min-width: 140px;">
+                                    <div class="progress flex-grow-1" style="height: 8px;">
+                                        <div class="progress-bar 
+                                            {% if inspection.ai_confidence > review_threshold %}bg-success
+                                            {% elif inspection.ai_confidence > 0.6 %}bg-warning
+                                            {% else %}bg-danger{% endif %}" 
+                                            style="width: {% widthratio inspection.ai_confidence 1 100 %}%">
+                                        </div>
                                     </div>
+                                    <span class="text-muted small" style="min-width: 45px;">
+                                        {% widthratio inspection.ai_confidence 1 100 %}%
+                                    </span>
                                 </div>
                             {% else %}
                                 <span class="text-muted">-</span>
@@ -118,7 +150,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center py-5">
+                        <td colspan="6" class="text-center py-5">
                             <i class="fas fa-images fa-4x text-muted mb-3"></i>
                             <h5>No inspections found</h5>
                             <p class="text-muted">Upload some EL images to get started</p>
@@ -187,20 +219,100 @@
 
 {% block extra_js %}
 <script>
+// Auto-refresh functionality
+let autoRefreshInterval = null;
+let isAutoRefreshEnabled = true;
+
+function startAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    autoRefreshInterval = setInterval(() => {
+        if (isAutoRefreshEnabled) {
+            // Animate refresh icon
+            const icon = document.getElementById('refreshIcon');
+            if (icon) {
+                icon.classList.add('fa-spin');
+                setTimeout(() => icon.classList.remove('fa-spin'), 1000);
+            }
+            
+            // Reload the page but preserve filters
+            const currentUrl = window.location.href;
+            window.location.reload();
+        }
+    }, 10000); // Refresh every 10 seconds
+}
+
+function toggleAutoRefresh() {
+    isAutoRefreshEnabled = !isAutoRefreshEnabled;
+    const button = event.target.closest('button');
+    const alertDiv = document.getElementById('autoRefreshAlert');
+    
+    if (isAutoRefreshEnabled) {
+        button.innerHTML = '<i class="fas fa-pause me-1"></i>Pause';
+        alertDiv.querySelector('div:first-child').innerHTML = '<i class="fas fa-sync-alt me-2" id="refreshIcon"></i><strong>Auto-refresh active</strong> - Page refreshes every 10 seconds to show updated results';
+        startAutoRefresh();
+    } else {
+        button.innerHTML = '<i class="fas fa-play me-1"></i>Resume';
+        alertDiv.querySelector('div:first-child').innerHTML = '<i class="fas fa-pause me-2"></i><strong>Auto-refresh paused</strong> - Click Resume to start auto-refresh';
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+    }
+}
+
 // Auto-submit form when filters change (except search to prevent too many requests)
 document.querySelectorAll('#filterForm select, #filterForm input[type="date"]').forEach(element => {
     element.addEventListener('change', function() {
+        // Disable auto-refresh when user applies filters
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
         document.getElementById('filterForm').submit();
     });
 });
 
 // For search, submit only after typing stops (debounce)
 let searchTimeout;
-document.querySelector('input[name="search"]').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        document.getElementById('filterForm').submit();
-    }, 500);
+const searchInput = document.querySelector('input[name="search"]');
+if (searchInput) {
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            document.getElementById('filterForm').submit();
+        }, 500);
+    });
+}
+
+// Start auto-refresh when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    startAutoRefresh();
+});
+
+// Check if there are any pending items and show a message
+document.addEventListener('DOMContentLoaded', function() {
+    const pendingCount = {{ page_obj.object_list|length }};
+    const hasPending = Array.from(document.querySelectorAll('.inspection-row')).some(row => {
+        const statusSpan = row.querySelector('td:nth-child(3) .badge');
+        return statusSpan && statusSpan.textContent.trim() === 'Pending';
+    });
+    
+    if (hasPending) {
+        const alertDiv = document.getElementById('autoRefreshAlert');
+        if (alertDiv) {
+            const messageDiv = alertDiv.querySelector('div:first-child');
+            if (messageDiv) {
+                messageDiv.innerHTML = '<i class="fas fa-sync-alt me-2 fa-spin"></i><strong>Processing images</strong> - Auto-refresh is active, page will update when results are ready';
+            }
+        }
+    }
 });
 </script>
 {% endblock %}

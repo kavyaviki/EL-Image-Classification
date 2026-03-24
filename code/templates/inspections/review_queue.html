@@ -7,55 +7,17 @@
 {% block page_subtitle %}Review and update inspections that need attention{% endblock %}
 
 {% block content %}
-<!-- Summary Cards -->
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card bg-primary text-white">
-            <div class="card-body">
-                <h6 class="mb-2">Total Items</h6>
-                <h2 class="mb-0">{{ total_count }}</h2>
-                <small>All items needing review</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card bg-success text-white">
-            <div class="card-body">
-                <h6 class="mb-2">Reviewed</h6>
-                <h2 class="mb-0">{{ reviewed_count }}</h2>
-                <small>Completed review (overridden)</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card bg-warning text-white">
-            <div class="card-body">
-                <h6 class="mb-2">Pending Review</h6>
-                <h2 class="mb-0">{{ pending_count }}</h2>
-                <small>Awaiting human review</small>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Filters -->
 <div class="card mb-4">
     <div class="card-body">
         <form method="get" id="filterForm">
             <div class="row g-3 align-items-end">
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <input type="text" name="search" class="form-control" 
                            placeholder="Search by file name" 
                            value="{{ request.GET.search }}">
                 </div>
-                <div class="col-md-3">
-                    <select name="review_status" class="form-select">
-                        <option value="">All Status</option>
-                        <option value="pending" {% if request.GET.review_status == 'pending' %}selected{% endif %}>Pending</option>
-                        <option value="reviewed" {% if request.GET.review_status == 'reviewed' %}selected{% endif %}>Reviewed</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="input-group">
                         <input type="date" name="date_from" class="form-control" 
                                placeholder="From Date" 
@@ -66,7 +28,7 @@
                                value="{{ request.GET.date_to }}">
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary flex-grow-1">
                             <i class="fas fa-filter me-2"></i>Filter
@@ -91,8 +53,7 @@
                         <th class="px-4 py-3">File Name</th>
                         <th class="py-3">Upload Date</th>
                         <th class="py-3">Status</th>
-                        <th class="py-3">AI Confidence</th>
-                        <th class="py-3">Human Override</th>
+                        <th class="py-3">Confidence</th>
                         <th class="px-4 py-3">Action</th>
                     </thead>
                 <tbody>
@@ -101,8 +62,8 @@
                         <td class="px-4 py-3">
                             <i class="fas fa-file-image me-2 text-primary"></i>
                             {{ inspection.name|truncatechars:40 }}
-                           </td>
-                        <td class="py-3">{{ inspection.uploaded_at|date:"Y-m-d H:i" }} </td>
+                        </td>
+                        <td class="py-3">{{ inspection.uploaded_at|date:"Y-m-d H:i" }}</td>
                         <td class="py-3">
                             <span class="badge 
                                 {% if inspection.human_override %}bg-success
@@ -115,53 +76,56 @@
                                 {% endif %}
                             </span>
                         </td>
-                        <td class="py-3" style="min-width: 140px;">
-                            {% if inspection.ai_confidence %}
-                                <div class="progress" style="height: 24px;">
-                                    <div class="progress-bar 
-                                        {% if inspection.ai_confidence > 0.8 %}bg-success
-                                        {% elif inspection.ai_confidence > 0.6 %}bg-warning
-                                        {% else %}bg-danger{% endif %}" 
-                                        style="width: {% widthratio inspection.ai_confidence 1 100 %}%; line-height: 24px; color: white; font-weight: 500;">
-                                        {{ inspection.ai_classification|default:"Pending"|title }} 
-                                        {% widthratio inspection.ai_confidence 1 100 %}%
-                                    </div>
-                                </div>
-                            {% else %}
-                                <div class="progress" style="height: 24px;">
-                                    <div class="progress-bar bg-secondary" style="width: 100%; line-height: 24px;">
-                                        Pending -
-                                    </div>
-                                </div>
-                            {% endif %}
-                        </td>
                         <td class="py-3">
-                            {% if inspection.human_override %}
-                                <span class="badge bg-info px-3 py-2">
-                                    <i class="fas fa-check-circle me-1"></i>Yes
-                                </span>
+                            {% if inspection.ai_confidence %}
+                                <div class="d-flex flex-column gap-1" style="min-width: 160px;">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="height: 8px;">
+                                            <div class="progress-bar 
+                                                {% if inspection.ai_confidence > 0.8 %}bg-success
+                                                {% elif inspection.ai_confidence > 0.6 %}bg-warning
+                                                {% else %}bg-danger{% endif %}" 
+                                                style="width: {% widthratio inspection.ai_confidence 1 100 %}%">
+                                            </div>
+                                        </div>
+                                        <span class="text-muted small" style="min-width: 45px;">
+                                            {% widthratio inspection.ai_confidence 1 100 %}%
+                                        </span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">AI Classification:</small>
+                                        <span class="badge 
+                                            {% if inspection.ai_classification == 'good' %}bg-success
+                                            {% elif inspection.ai_classification == 'defect' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}" 
+                                            style="font-size: 0.7rem;">
+                                            {{ inspection.ai_classification|default:"Pending"|title }}
+                                        </span>
+                                    </div>
+                                </div>
                             {% else %}
-                                <span class="badge bg-secondary px-3 py-2">
-                                    <i class="fas fa-times-circle me-1"></i>No
-                                </span>
+                                <div class="d-flex align-items-center gap-2" style="min-width: 160px;">
+                                    <div class="progress flex-grow-1" style="height: 8px;">
+                                        <div class="progress-bar bg-secondary" style="width: 100%">
+                                        </div>
+                                    </div>
+                                    <span class="text-muted small">-</span>
+                                </div>
                             {% endif %}
                         </td>
                         <td class="px-4 py-3">
-                            <!-- <a href="{% url 'inspections:detail' inspection.id %}" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-eye me-1"></i>{% if inspection.human_override %}View{% else %}Review{% endif %}
-                            </a> -->
                             <a href="{% url 'inspections:detail' inspection.id %}?from_review_queue=true" class="btn btn-sm btn-outline-primary">
-    <i class="fas fa-eye me-1"></i>{% if inspection.human_override %}View{% else %}Review{% endif %}
-</a>
+                                <i class="fas fa-eye me-1"></i>{% if inspection.human_override %}View{% else %}Review{% endif %}
+                            </a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center py-5">
+                        <td colspan="5" class="text-center py-5">
                             <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
-                            <h5>No items in review queue</h5>
+                            <h5>No pending items in review queue</h5>
                             <p class="text-muted">
-                                All inspections have confidence above threshold or have been reviewed already.
+                                All inspections have been reviewed or have confidence above threshold.
                             </p>
                             <a href="{% url 'inspections:upload' %}" class="btn btn-primary mt-2">
                                 <i class="fas fa-cloud-upload-alt me-2"></i>Upload New Images
