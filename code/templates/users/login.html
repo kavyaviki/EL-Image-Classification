@@ -6,59 +6,68 @@
 {% block public_content %}
 <div class="login-container">
     <div class="login-wrapper">
-        <!-- Left Column - Image Section -->
-        <div class="login-image-section">
-            <div class="image-content">
-                <img src="{% static 'images/login.png' %}" 
-                     alt="Solar Panel Inspection"
-                     class="login-image">
-            </div>
-        </div>
+        <!-- Left Column - White Background (40%) -->
+        <div class="login-left-bg"></div>
         
-        <!-- Right Column - Login Form -->
-        <div class="login-form-section">
-            <div class="form-container">
-                <!-- Welcome Text -->
-                <div class="welcome-section">
-                    <h2 class="welcome-title">Welcome!</h2>
-                    <p class="welcome-subtitle">Login using email and goto Traceability</p>
+        <!-- Right Column - Light Gray Background (60%) -->
+        <div class="login-right-bg"></div>
+        
+        <!-- Content Overlay - Image spans across both backgrounds -->
+        <div class="login-content">
+            <!-- Left Column - Image Section -->
+            <div class="login-image-section">
+                <div class="image-content">
+                    <img src="{% static 'images/login.png' %}" 
+                         alt="Solar Panel Inspection"
+                         class="login-image">
                 </div>
-                
-                <form method="post" novalidate class="login-form">
-                    {% csrf_token %}
-                    
-                    <!-- Email Field -->
-                    <div class="form-group">
-                        <label for="id_email" class="form-label">Email ID</label>
-                        <input type="email" name="email" id="id_email" 
-                               class="form-control"
-                               placeholder="Enter your email ID"
-                               value="{{ form.email.value|default:'' }}"
-                               autocomplete="email"
-                               required>
-                        {% if form.email.errors %}
-                            <div class="error-message">{{ form.email.errors.0 }}</div>
-                        {% endif %}
+            </div>
+            
+            <!-- Right Column - Login Form Section -->
+            <div class="login-form-section">
+                <div class="form-container">
+                    <!-- Welcome Text -->
+                    <div class="welcome-section">
+                        <h2 class="welcome-title">Welcome!</h2>
+                        <p class="welcome-subtitle">Login using email and goto Traceability</p>
                     </div>
                     
-                    <!-- Password Field -->
-                    <div class="form-group">
-                        <label for="id_password" class="form-label">Password</label>
-                        <input type="password" name="password" id="id_password" 
-                               class="form-control"
-                               placeholder="Enter your password"
-                               autocomplete="current-password"
-                               required>
-                        {% if form.password.errors %}
-                            <div class="error-message">{{ form.password.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Login Button -->
-                    <button type="submit" class="login-btn">
-                        Login
-                    </button>
-                </form>
+                    <form method="post" novalidate class="login-form">
+                        {% csrf_token %}
+                        
+                        <!-- Email Field -->
+                        <div class="form-group">
+                            <label for="id_email" class="form-label">Email ID</label>
+                            <input type="email" name="email" id="id_email" 
+                                   class="form-control"
+                                   placeholder="Enter your email ID"
+                                   value="{{ form.email.value|default:'' }}"
+                                   autocomplete="email"
+                                   required>
+                            {% if form.email.errors %}
+                                <div class="error-message">{{ form.email.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Password Field -->
+                        <div class="form-group">
+                            <label for="id_password" class="form-label">Password</label>
+                            <input type="password" name="password" id="id_password" 
+                                   class="form-control"
+                                   placeholder="Enter your password"
+                                   autocomplete="current-password"
+                                   required>
+                            {% if form.password.errors %}
+                                <div class="error-message">{{ form.password.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Login Button -->
+                        <button type="submit" class="login-btn">
+                            Login
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -97,30 +106,55 @@
         width: 100%;
         height: 100vh;
         overflow: hidden;
-        background: #ffffff;
     }
     
     .login-wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+    }
+    
+    /* Background Columns */
+    .login-left-bg {
+        flex: 0 0 40%;
+        background: #ffffff;
+        height: 100%;
+    }
+    
+    .login-right-bg {
+        flex: 0 0 60%;
+        background: rgba(248, 248, 248, 1);
+        height: 100%;
+    }
+    
+    /* Content Overlay - Positioned absolutely over backgrounds */
+    .login-content {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         display: flex;
         width: 100%;
         height: 100%;
-        flex-direction: row;
+        z-index: 1;
     }
     
     /* Left Column - Image Section */
     .login-image-section {
-        flex: 1;
-        background: #ffffff;
+        flex: 0 0 40%;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 2rem;
         overflow: hidden;
+        background: transparent;
     }
     
     .image-content {
         width: 100%;
-        max-width: 600px;
+        max-width: 500px;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -135,13 +169,13 @@
     
     /* Right Column - Form Section */
     .login-form-section {
-        flex: 1;
-        background: #ffffff;
+        flex: 0 0 60%;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 2rem;
         overflow-y: auto;
+        background: transparent;
     }
     
     /* Hide scrollbar but keep functionality */
@@ -265,37 +299,6 @@
     
     /* Responsive Design */
     @media (max-width: 992px) {
-        .login-wrapper {
-            flex-direction: column;
-        }
-        
-        .login-image-section {
-            flex: 0 0 auto;
-            padding: 1rem;
-            min-height: 200px;
-            max-height: 35vh;
-        }
-        
-        .login-image {
-            max-height: 100%;
-            width: auto;
-            max-width: 80%;
-        }
-        
-        .login-form-section {
-            flex: 1;
-            padding: 1.5rem;
-            align-items: flex-start;
-        }
-        
-        .form-container {
-            max-width: 100%;
-        }
-        
-        .welcome-title {
-            font-size: 1.75rem;
-        }
-        
         body {
             overflow: auto;
         }
@@ -306,16 +309,75 @@
             min-height: 100vh;
             overflow-y: auto;
         }
-    }
-    
-    @media (max-width: 768px) {
+        
+        .login-wrapper {
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .login-left-bg {
+            flex: 0 0 auto;
+            height: 35vh;
+            width: 100%;
+        }
+        
+        .login-right-bg {
+            flex: 1;
+            height: auto;
+            width: 100%;
+            min-height: 65vh;
+        }
+        
+        .login-content {
+            position: relative;
+            flex-direction: column;
+        }
+        
         .login-image-section {
-            min-height: 180px;
-            max-height: 30vh;
+            flex: 0 0 auto;
+            padding: 1.5rem;
+            min-height: 35vh;
+            background: transparent;
         }
         
         .login-image {
+            max-height: 100%;
+            width: auto;
             max-width: 70%;
+        }
+        
+        .login-form-section {
+            flex: 1;
+            padding: 2rem 1.5rem;
+            align-items: flex-start;
+            background: transparent;
+        }
+        
+        .form-container {
+            max-width: 100%;
+        }
+        
+        .welcome-title {
+            font-size: 1.75rem;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .login-left-bg {
+            height: 30vh;
+        }
+        
+        .login-image-section {
+            min-height: 30vh;
+            padding: 1rem;
+        }
+        
+        .login-image {
+            max-width: 60%;
+        }
+        
+        .login-form-section {
+            padding: 1.5rem;
         }
         
         .form-container {
@@ -346,13 +408,16 @@
     }
     
     @media (max-width: 480px) {
+        .login-left-bg {
+            height: 25vh;
+        }
+        
         .login-image-section {
-            min-height: 150px;
-            max-height: 25vh;
+            min-height: 25vh;
         }
         
         .login-image {
-            max-width: 80%;
+            max-width: 70%;
         }
         
         .login-form-section {
@@ -368,7 +433,7 @@
         }
     }
     
-    /* Fix for any potential overflow issues */
+    /* Desktop specific scroll handling */
     @media (min-width: 993px) {
         .login-form-section {
             overflow-y: auto;
@@ -380,7 +445,7 @@
             padding: 1rem 0;
         }
         
-        /* Hide scrollbar for cleaner look */
+        /* Optional: Show scrollbar only when needed with minimal styling */
         .form-container::-webkit-scrollbar {
             width: 4px;
         }
