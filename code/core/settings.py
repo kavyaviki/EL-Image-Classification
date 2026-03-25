@@ -168,3 +168,10 @@ AWS_S3_REGION = config('AWS_REGION', default='ap-south-1')
 
 # Review threshold: images with confidence below this will be marked as "Review"
 REVIEW_CONFIDENCE_THRESHOLD = config('REVIEW_CONFIDENCE_THRESHOLD', default='0.8')  # 80% - change this value as needed
+
+# Auto-Deactivation Settings
+# If True, users will be deactivated after AUTO_DEACTIVATE_DAYS from their FIRST login
+# This date does NOT reset on subsequent logins
+AUTO_DEACTIVATE_USERS = config('AUTO_DEACTIVATE_USERS', default=False, cast=bool)
+AUTO_DEACTIVATE_DAYS = config('AUTO_DEACTIVATE_DAYS', default=30, cast=int)
+AUTO_DEACTIVATE_ADMINS = config('AUTO_DEACTIVATE_ADMINS', default=False, cast=bool)

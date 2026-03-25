@@ -71,6 +71,34 @@ class CustomUserChangeForm(UserChangeForm):
             'profile_picture': forms.FileInput(attrs={'class': 'form-control'}),
         }
 
+# class LoginForm(forms.Form):
+#     """
+#     Form for user login
+#     """
+#     email = forms.EmailField(
+#         required=True,
+#         widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email'})
+#     )
+#     password = forms.CharField(
+#         required=True,
+#         widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Password'})
+#     )
+    
+#     def clean(self):
+#         email = self.cleaned_data.get('email')
+#         password = self.cleaned_data.get('password')
+        
+#         if email and password:
+#             self.user = authenticate(username=email, password=password)
+#             if self.user is None:
+#                 raise forms.ValidationError("Invalid email or password.")
+#             if not self.user.is_active:
+#                 raise forms.ValidationError("This account is inactive.")
+#         return self.cleaned_data
+    
+#     def get_user(self):
+#         return getattr(self, 'user', None)
+
 class LoginForm(forms.Form):
     """
     Form for user login
@@ -89,11 +117,16 @@ class LoginForm(forms.Form):
         password = self.cleaned_data.get('password')
         
         if email and password:
+            # Try to authenticate with email as username (since USERNAME_FIELD is email)
             self.user = authenticate(username=email, password=password)
+            
             if self.user is None:
                 raise forms.ValidationError("Invalid email or password.")
+            
+            # Check if user is active
             if not self.user.is_active:
                 raise forms.ValidationError("This account is inactive.")
+        
         return self.cleaned_data
     
     def get_user(self):

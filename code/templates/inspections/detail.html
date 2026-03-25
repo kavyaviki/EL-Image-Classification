@@ -123,24 +123,6 @@
                         </span>
                     </div>
                 </div>
-                <div class="mt-4">
-                    <h6 class="text-bold mb-2">Detected Defects</h6>
-                    <div class="d-flex justify-content-between align-items-center bg-white p-3 rounded-3">
-                        <span>Micro Cracks, Broken Cells & Edge Isolation</span>
-                        <span class="fw-bold text-warning">
-                            {% if inspection.ai_confidence %}{% widthratio inspection.ai_confidence 1 100 %}%{% else %}0{% endif %}%
-                        </span>
-                    </div>
-                </div>
-                <div class="mt-4">
-                    <h6 class="text-bold mb-2">AI Explanation</h6>
-                    <div class="bg-white p-3 rounded-3">
-                        <p class="mb-0 text-muted small">
-                            Detected multiple defects with {% if inspection.ai_confidence %}{% widthratio inspection.ai_confidence 1 100 %}%{% else %}0{% endif %}% confidence. 
-                            1 region(s) identified with anomalous EL response patterns.
-                        </p>
-                    </div>
-                </div>
             </div>
         </div>
 
