@@ -16,6 +16,187 @@
     .card {
         background-color: white;
     }
+    
+    /* KPI Card Styles */
+    .kpi-card {
+        border-radius: 20px;
+        transition: transform 0.2s, box-shadow 0.2s;
+        overflow: hidden;
+        border: 2px solid transparent;
+    }
+    
+    .kpi-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.02) !important;
+    }
+    
+    /* Individual card border colors */
+    .kpi-total {
+        border-top: 4px solid #6c757d;
+        border-left: 1px solid #e9ecef;
+        border-right: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .kpi-good {
+        border-top: 4px solid #10b981;
+        border-left: 1px solid #e9ecef;
+        border-right: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+        background: linear-gradient(to bottom, #ffffff, #f0fdf4);
+    }
+    
+    .kpi-defective {
+        border-top: 4px solid #ef4444;
+        border-left: 1px solid #e9ecef;
+        border-right: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+        background: linear-gradient(to bottom, #ffffff, #fef2f2);
+    }
+    
+    .kpi-review {
+        border-top: 4px solid #f59e0b;
+        border-left: 1px solid #e9ecef;
+        border-right: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+        background: linear-gradient(to bottom, #ffffff, #fffbeb);
+    }
+    
+    .kpi-icon {
+        width: 52px;
+        height: 52px;
+        object-fit: contain;
+    }
+    
+    .trend-up {
+        color: #10b981;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .trend-down {
+        color: #ef4444;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .trend-neutral {
+        color: #f59e0b;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    /* KPI Text Styles */
+    .kpi-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .kpi-title-total {
+        color: #495057;
+    }
+    
+    .kpi-title-good {
+        color: #059669;
+    }
+    
+    .kpi-title-defective {
+        color: #dc2626;
+    }
+    
+    .kpi-title-review {
+        color: #d97706;
+    }
+    
+    .kpi-value {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 0.25rem;
+    }
+    
+    .kpi-value-total {
+        color: #1f2937;
+    }
+    
+    .kpi-value-good {
+        color: #059669;
+    }
+    
+    .kpi-value-defective {
+        color: #dc2626;
+    }
+    
+    .kpi-value-review {
+        color: #d97706;
+    }
+    
+    .kpi-count {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #6c757d;
+    }
+    
+    .trend-text {
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    /* Chart Legend Icons - Clean White Background */
+    .chart-legend {
+        display: flex;
+        justify-content: center;
+        gap: 2.5rem;
+        margin-top: 1.5rem;
+        padding: 0.5rem;
+        background: transparent;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0;
+        background: transparent;
+    }
+    
+    .legend-icon {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+    }
+    
+    .legend-text {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #4b5563;
+    }
+    
+    .legend-color {
+        width: 24px;
+        height: 3px;
+        border-radius: 2px;
+        margin-top: 4px;
+    }
+    
+    .legend-color-good {
+        background-color: #10b981;
+    }
+    
+    .legend-color-defective {
+        background-color: #ef4444;
+    }
+    
+    .legend-color-human {
+        background-color: #f59e0b;
+    }
+    
+    .legend-info {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
 </style>
 {% endblock %}
 
@@ -41,59 +222,171 @@
     </form>
 </div>
 
-<!-- 2. KPI CARDS -->
+<!-- 2. KPI CARDS - Updated Design with Colored Borders -->
 <div class="row g-4 mb-5">
-    <!-- Total Panels -->
+    <!-- Total Panels Inspected - Gray Border -->
     <div class="col-lg-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100" style="border-top: 4px solid #3b82f6;">
-            <div class="card-body">
-                <p class="text-muted mb-1">Total Panels Inspected</p>
-                <h2 class="fw-bold mb-1">{{ total_panels }}</h2>
-                <div class="text-success fw-semibold small">
-                    <i class="fas fa-arrow-trend-up"></i> {{ total_change }}%
+        <div class="card shadow-sm h-100 kpi-card kpi-total">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="flex-grow-1">
+                        <p class="kpi-title kpi-title-total mb-1">
+                            <i class="fas fa-chart-line me-2"></i>Total Panels Inspected
+                        </p>
+                        <h2 class="kpi-value kpi-value-total mb-0">{{ total_panels|default:"0"|floatformat:0 }}</h2>
+                    </div>
+                    <div>
+                        <img src="{% static 'images/Total.png' %}" 
+                             alt="Total Panels" 
+                             class="kpi-icon"
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/52?text=📊'">
+                    </div>
                 </div>
-                <canvas id="sparkline" height="55"></canvas>
+                <div class="d-flex justify-content-between align-items-end mt-3 pt-2 border-top">
+                    <div>
+                        {% if total_change > 0 %}
+                        <span class="trend-up">
+                            <i class="fas fa-arrow-up me-1"></i>{{ total_change|floatformat:1 }}%
+                        </span>
+                        {% elif total_change < 0 %}
+                        <span class="trend-down">
+                            <i class="fas fa-arrow-down me-1"></i>{{ total_change|floatformat:1 }}%
+                        </span>
+                        {% else %}
+                        <span class="trend-neutral">
+                            <i class="fas fa-minus me-1"></i>0%
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="kpi-count">
+                        {{ total_panels|default:"0"|floatformat:0 }} panels
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Good Panels -->
+    <!-- Good Panels - Light Green Border -->
     <div class="col-lg-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100" style="border-top: 4px solid #10b981;">
-            <div class="card-body">
-                <p class="text-muted mb-1">Good Panels</p>
-                <h2 class="fw-bold mb-1">{{ good_percentage }}%</h2>
-                <p class="text-muted small mb-2">{{ good_panels }} panels</p>
-                <div class="text-success fw-semibold small">
-                    <i class="fas fa-arrow-trend-up"></i> {{ good_change }}%
+        <div class="card shadow-sm h-100 kpi-card kpi-good">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="flex-grow-1">
+                        <p class="kpi-title kpi-title-good mb-1">
+                            <i class="fas fa-check-circle me-2"></i>Good Panels
+                        </p>
+                        <h2 class="kpi-value kpi-value-good mb-0">{{ good_percentage|default:"0"|floatformat:1 }}%</h2>
+                    </div>
+                    <div>
+                        <img src="{% static 'images/Good.png' %}" 
+                             alt="Good Panels" 
+                             class="kpi-icon"
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/52?text=✓'">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-end mt-3 pt-2 border-top">
+                    <div>
+                        {% if good_change > 0 %}
+                        <span class="trend-up">
+                            <i class="fas fa-arrow-up me-1"></i>{{ good_change|floatformat:1 }}%
+                        </span>
+                        {% elif good_change < 0 %}
+                        <span class="trend-down">
+                            <i class="fas fa-arrow-down me-1"></i>{{ good_change|floatformat:1 }}%
+                        </span>
+                        {% else %}
+                        <span class="trend-neutral">
+                            <i class="fas fa-minus me-1"></i>0%
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="kpi-count">
+                        {{ good_panels|default:"0"|floatformat:0 }} panels
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Defective Panels -->
+    <!-- Defective Panels - Light Red Border -->
     <div class="col-lg-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100" style="border-top: 4px solid #ef4444;">
-            <div class="card-body">
-                <p class="text-muted mb-1">Defective Panels</p>
-                <h2 class="fw-bold mb-1">{{ defective_percentage }}%</h2>
-                <p class="text-muted small mb-2">{{ defective_panels }} panels</p>
-                <div class="text-danger fw-semibold small">
-                    <i class="fas fa-arrow-trend-down"></i> {{ defective_change }}%
+        <div class="card shadow-sm h-100 kpi-card kpi-defective">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="flex-grow-1">
+                        <p class="kpi-title kpi-title-defective mb-1">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Defective Panels
+                        </p>
+                        <h2 class="kpi-value kpi-value-defective mb-0">{{ defective_percentage|default:"0"|floatformat:1 }}%</h2>
+                    </div>
+                    <div>
+                        <img src="{% static 'images/Defect.png' %}" 
+                             alt="Defective Panels" 
+                             class="kpi-icon"
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/52?text=⚠'">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-end mt-3 pt-2 border-top">
+                    <div>
+                        {% if defective_change > 0 %}
+                        <span class="trend-up">
+                            <i class="fas fa-arrow-up me-1"></i>{{ defective_change|floatformat:1 }}%
+                        </span>
+                        {% elif defective_change < 0 %}
+                        <span class="trend-down">
+                            <i class="fas fa-arrow-down me-1"></i>{{ defective_change|floatformat:1 }}%
+                        </span>
+                        {% else %}
+                        <span class="trend-neutral">
+                            <i class="fas fa-minus me-1"></i>0%
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="kpi-count">
+                        {{ defective_panels|default:"0"|floatformat:0 }} panels
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Human Review Required -->
+    <!-- Human Review Required - Light Yellow Border -->
     <div class="col-lg-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100" style="border-top: 4px solid #f59e0b;">
-            <div class="card-body">
-                <p class="text-muted mb-1">Human Review Required</p>
-                <h2 class="fw-bold mb-1">{{ human_review_percentage }}%</h2>
-                <p class="text-muted small mb-2">{{ human_review_required }} panels</p>
-                <div class="text-warning fw-semibold small">
-                    <i class="fas fa-arrow-trend-up"></i> {{ review_change }}%
+        <div class="card shadow-sm h-100 kpi-card kpi-review">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="flex-grow-1">
+                        <p class="kpi-title kpi-title-review mb-1">
+                            <i class="fas fa-users me-2"></i>Human Review Required
+                        </p>
+                        <h2 class="kpi-value kpi-value-review mb-0">{{ human_review_percentage|default:"0"|floatformat:1 }}%</h2>
+                    </div>
+                    <div>
+                        <img src="{% static 'images/Warning.png' %}" 
+                             alt="Human Review Required" 
+                             class="kpi-icon"
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/52?text=👤'">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-end mt-3 pt-2 border-top">
+                    <div>
+                        {% if review_change > 0 %}
+                        <span class="trend-up">
+                            <i class="fas fa-arrow-up me-1"></i>{{ review_change|floatformat:1 }}%
+                        </span>
+                        {% elif review_change < 0 %}
+                        <span class="trend-down">
+                            <i class="fas fa-arrow-down me-1"></i>{{ review_change|floatformat:1 }}%
+                        </span>
+                        {% else %}
+                        <span class="trend-neutral">
+                            <i class="fas fa-minus me-1"></i>0%
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="kpi-count">
+                        {{ human_review_required|default:"0"|floatformat:0 }} panels
+                    </div>
                 </div>
             </div>
         </div>
@@ -106,40 +399,46 @@
         <h5 class="mb-1">Defect Trends Over Time</h5>
         <p class="text-muted small mb-3">Historical defect and doubtful case trends</p>
         <canvas id="trendChart" height="110"></canvas>
-    </div>
-</div>
-
-<!-- 4 & 5. COMPACT SIDE-BY-SIDE CHARTS -->
-<div class="row g-4 mb-4">
-    
-    <!-- Defect Rate per Assembly Line -->
-    <div class="col-lg-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-body pb-2">
-                <h5 class="mb-2">Defect Rate per Assembly Line</h5>
-                <p class="text-muted small mb-3">Click bar to filter Results page</p>
-                <div style="height: 240px;">
-                    <canvas id="lineDefectChart"></canvas>
+        
+        <!-- Custom Legend with Images - Clean White Background -->
+        <div class="chart-legend">
+            <div class="legend-item">
+                <img src="{% static 'images/Green.png' %}" 
+                     alt="Good" 
+                     class="legend-icon"
+                     onerror="this.onerror=null; this.src='https://via.placeholder.com/28?text=✓'">
+                <div class="legend-info">
+                    <div class="legend-text">Good</div>
+                    <div class="legend-color legend-color-good"></div>
+                </div>
+            </div>
+            
+            <div class="legend-item">
+                <img src="{% static 'images/Red.png' %}" 
+                     alt="Defective" 
+                     class="legend-icon"
+                     onerror="this.onerror=null; this.src='https://via.placeholder.com/28?text=⚠'">
+                <div class="legend-info">
+                    <div class="legend-text">Defective</div>
+                    <div class="legend-color legend-color-defective"></div>
+                </div>
+            </div>
+            
+            <div class="legend-item">
+                <img src="{% static 'images/Yellow.png' %}" 
+                     alt="Human Decision" 
+                     class="legend-icon"
+                     onerror="this.onerror=null; this.src='https://via.placeholder.com/28?text=👤'">
+                <div class="legend-info">
+                    <div class="legend-text">Human Decision</div>
+                    <div class="legend-color legend-color-human"></div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Type Distribution -->
-    <div class="col-lg-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-body pb-2">
-                <h5 class="mb-2">Defect Type Distribution</h5>
-                <p class="text-muted small mb-3">Good vs Defective vs Human Override</p>
-                <div style="height: 240px;">
-                    <canvas id="typeDistributionChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
-<!-- 6. AI PERFORMANCE METRICS -->
+<!-- 4. AI PERFORMANCE METRICS -->
 <div class="card shadow-sm">
     <div class="card-body">
         <h5 class="mb-3">AI Performance Metrics</h5>
@@ -194,14 +493,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const good = {{ good_values|safe }};
     const defective = {{ defective_values|safe }};
     const human = {{ human_values|safe }};
-    const sparkline = {{ sparkline_values|safe }};
-
-    // Sparkline
-    new Chart(document.getElementById('sparkline'), {
-        type: 'line',
-        data: { labels: labels, datasets: [{ data: sparkline, borderColor: '#3b82f6', borderWidth: 2, tension: 0.4, pointRadius: 0 }] },
-        options: { plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } }
-    });
 
     // Defect Trends Over Time
     new Chart(document.getElementById('trendChart'), {
@@ -209,67 +500,73 @@ document.addEventListener('DOMContentLoaded', function () {
         data: {
             labels: labels,
             datasets: [
-                { label: 'Good', data: good, borderColor: '#10b981', tension: 0.4, borderWidth: 3 },
-                { label: 'Defective', data: defective, borderColor: '#ef4444', tension: 0.4, borderWidth: 3 },
-                { label: 'Human Decision', data: human, borderColor: '#f59e0b', tension: 0.4, borderWidth: 3 }
+                { 
+                    label: 'Good', 
+                    data: good, 
+                    borderColor: '#10b981', 
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4, 
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#10b981',
+                    fill: true
+                },
+                { 
+                    label: 'Defective', 
+                    data: defective, 
+                    borderColor: '#ef4444', 
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.4, 
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#ef4444',
+                    fill: true
+                },
+                { 
+                    label: 'Human Decision', 
+                    data: human, 
+                    borderColor: '#f59e0b', 
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    tension: 0.4, 
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#f59e0b',
+                    fill: true
+                }
             ]
         },
         options: {
             responsive: true,
-            plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } },
-            scales: { y: { beginAtZero: true } }
-        }
-    });
-
-    // Compact Horizontal Bar Chart
-    new Chart(document.getElementById('lineDefectChart'), {
-        type: 'bar',
-        data: {
-            labels: ['Line 1', 'Line 2', 'Line 3', 'Line 4', 'Line A', 'Line B'],
-            datasets: [{
-                label: 'Defect Rate (%)',
-                data: [8.5, 13.2, 6.8, 14.8, 7.9, 9.5],
-                backgroundColor: ['#fbbf24', '#ef4444', '#fbbf24', '#ef4444', '#fbbf24', '#fbbf24'],
-                borderRadius: 4
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { beginAtZero: true, max: 16, ticks: { font: { size: 11 } } },
-                y: { ticks: { font: { size: 12 } } }
-            }
-        }
-    });
-
-    // Compact Radar Chart
-    new Chart(document.getElementById('typeDistributionChart'), {
-        type: 'radar',
-        data: {
-            labels: {{ distribution_labels|safe }},
-            datasets: [{
-                data: {{ distribution_values|safe }},
-                backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                borderColor: '#3b82f6',
-                borderWidth: 2,
-                pointBackgroundColor: '#3b82f6',
-                pointRadius: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                r: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: { stepSize: 25, font: { size: 10 } }
+            maintainAspectRatio: true,
+            plugins: { 
+                legend: { 
+                    display: false  // Hide default legend since we have custom one
+                }, 
+                tooltip: { 
+                    mode: 'index', 
+                    intersect: false 
                 }
             },
-            plugins: { legend: { display: false } }
+            scales: { 
+                y: { 
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Panels',
+                        color: '#6c757d'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date',
+                        color: '#6c757d'
+                    }
+                }
+            }
         }
     });
 
