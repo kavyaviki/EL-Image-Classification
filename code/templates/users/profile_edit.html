@@ -5,6 +5,14 @@
 {% block page_title %}Edit Profile{% endblock %}
 {% block page_subtitle %}Update your personal information{% endblock %}
 
+{% block extra_css %}
+<style>
+    .main-content {
+        background-color: #f3f6ff !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
@@ -16,7 +24,7 @@
                 <form method="post" enctype="multipart/form-data" novalidate>
                     {% csrf_token %}
                     
-                    <!-- Profile Picture -->
+                    <!-- Profile Picture Preview -->
                     <div class="text-center mb-4">
                         <div class="position-relative d-inline-block">
                             {% if user.profile_picture %}
@@ -31,49 +39,10 @@
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            {{ form.username|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.email|as_crispy_field }}
-                        </div>
-                    </div>
+                    <!-- Use crispy to render all form fields -->
+                    {{ form|crispy }}
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            {{ form.first_name|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.last_name|as_crispy_field }}
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            {{ form.phone_number|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.profile_picture|as_crispy_field }}
-                        </div>
-                    </div>
-                    
-                    <!-- <hr>
-                    
-                    <h6 class="mb-3"><i class="fas fa-phone-alt me-2 text-warning"></i>Emergency Contact</h6>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            {{ form.emergency_contact_name|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.emergency_contact_phone|as_crispy_field }}
-                        </div>
-                    </div>
-                    
-                    <hr> -->
-                    
-                    <div class="d-flex justify-content-between">
+                    <div class="d-flex justify-content-between mt-4">
                         <a href="{% url 'users:profile' %}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>Cancel
                         </a>
@@ -91,22 +60,21 @@
 {% block extra_js %}
 <script>
     // Preview profile picture
-    document.getElementById('id_profile_picture').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const preview = document.getElementById('profilePreview');
-                if (preview) {
-                    preview.src = e.target.result;
-                } else {
-                    // Create preview if it doesn't exist
-                    const container = document.querySelector('.position-relative');
-                    container.innerHTML = `<img src="${e.target.result}" id="profilePreview" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">`;
+    const pictureInput = document.getElementById('id_profile_picture');
+    if (pictureInput) {
+        pictureInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('profilePreview');
+                    if (preview) {
+                        preview.src = e.target.result;
+                    }
                 }
+                reader.readAsDataURL(file);
             }
-            reader.readAsDataURL(file);
-        }
-    });
+        });
+    }
 </script>
 {% endblock %}

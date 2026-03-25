@@ -5,6 +5,14 @@
 {% block page_title %}{{ action }} User{% endblock %}
 {% block page_subtitle %}{% if action == 'Create' %}Add a new user to the system{% else %}Update user information{% endif %}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .main-content {
+        background-color: rgba(243, 246, 255) !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
