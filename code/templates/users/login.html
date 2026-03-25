@@ -6,74 +6,59 @@
 {% block public_content %}
 <div class="row justify-content-center align-items-center min-vh-100 g-0">
     <!-- Left Column - Image with White Background -->
-    <div class="col-md-6 d-none d-md-flex flex-column justify-content-center align-items-center p-5" 
+    <div class="col-md-5 d-none d-md-flex flex-column justify-content-center align-items-center p-5" 
          style="min-height: 100vh; background-color: #ffffff;">
-        <div class="text-center w-100">
+        <div class="text-center w-100" style="margin-top: 75px;">
             <img src="{% static 'images/login.png' %}" 
                  alt="Solar Panel Inspection"
                  class="img-fluid"
-                 style="max-width: 80%; max-height: 80vh; object-fit: contain;">
+                 style="width: 100%; max-width: 2000px; height: auto; object-fit: contain;">
         </div>
     </div>
     
     <!-- Right Column - Login Form -->
-    <div class="col-md-6">
+    <div class="col-md-7">
         <div class="d-flex flex-column justify-content-center p-4 p-md-5" style="min-height: 100vh; background-color: #f8f9fa;">
             <div class="mx-auto" style="max-width: 400px; width: 100%;">
+                <!-- Welcome Text -->
                 <div class="mb-4 text-center text-md-start">
-                    <h2 class="fw-bold mb-2">Welcome Back!</h2>
-                    <p class="text-muted">Login to access your dashboard</p>
+                    <h2 class="fw-bold mb-2">Welcome!</h2>
+                    <p class="text-muted">Login using email and password</p>
                 </div>
                 
                 <form method="post" novalidate>
                     {% csrf_token %}
                     
+                    <!-- Email Field -->
                     <div class="mb-4">
                         <label for="id_email" class="form-label fw-semibold mb-2">Email ID</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0">
-                                <i class="fas fa-envelope text-muted"></i>
-                            </span>
-                            <input type="email" name="email" id="id_email" 
-                                   class="form-control form-control-lg border-start-0 ps-0"
-                                   placeholder="Enter your email ID"
-                                   value="{{ form.email.value|default:'' }}"
-                                   required>
-                        </div>
+                        <input type="email" name="email" id="id_email" 
+                               class="form-control form-control-lg"
+                               placeholder="Enter your email ID"
+                               value="{{ form.email.value|default:'' }}"
+                               required>
                         {% if form.email.errors %}
                             <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
                         {% endif %}
                     </div>
                     
+                    <!-- Password Field -->
                     <div class="mb-4">
                         <label for="id_password" class="form-label fw-semibold mb-2">Password</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0">
-                                <i class="fas fa-lock text-muted"></i>
-                            </span>
-                            <input type="password" name="password" id="id_password" 
-                                   class="form-control form-control-lg border-start-0 ps-0"
-                                   placeholder="Enter your password"
-                                   required>
-                        </div>
+                        <input type="password" name="password" id="id_password" 
+                               class="form-control form-control-lg"
+                               placeholder="Enter your password"
+                               required>
                         {% if form.password.errors %}
                             <div class="text-danger small mt-1">{{ form.password.errors.0 }}</div>
                         {% endif %}
                     </div>
                     
-                    <button type="submit" class="btn btn-primary btn-lg w-100 py-3 fw-semibold mb-4">
-                        <i class="fas fa-arrow-right me-2"></i>Login
+                    <!-- Login Button -->
+                    <button type="submit" class="btn btn-primary btn-lg w-100 py-3 fw-semibold">
+                        Login
                     </button>
                 </form>
-                
-                <!-- <div class="text-center">
-                    <p class="mb-0 text-muted">
-                        Don't have an account?
-                        <a href="{% url 'users:register' %}" class="text-primary text-decoration-none fw-semibold">
-                            Create Account
-                        </a>
-                    </p>
-                </div> -->
             </div>
         </div>
     </div>
@@ -82,11 +67,18 @@
 
 {% block extra_css %}
 <style>
-
-    .main-content {
-        background-color: rgba(243, 246, 255) !important;
+    /* Ensure the public layout doesn't have extra padding */
+    body {
+        margin: 0;
+        padding: 0;
     }
-
+    
+    .container {
+        max-width: 100%;
+        padding: 0;
+        margin: 0;
+    }
+    
     /* Ensure perfect alignment */
     .row.g-0 {
         margin: 0;
@@ -94,55 +86,60 @@
     }
     
     /* Left column image container */
-    .col-md-6:first-child {
+    .col-md-5:first-child {
         display: flex;
         justify-content: center;
         align-items: center;
+        position: relative;
     }
     
     /* Right column form container */
-    .col-md-6:last-child {
+    .col-md-7:last-child {
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
     
-    /* Form inputs focus effect */
+    /* Form inputs styling */
+    .form-control {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
     .form-control:focus {
         border-color: #0d6efd;
-        box-shadow: none;
-    }
-    
-    .input-group-text {
-        background-color: #f8f9fa;
-        border-right: none;
-    }
-    
-    .form-control {
-        border-left: none;
-    }
-    
-    .form-control:focus {
-        border-left: none;
+        box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.1);
+        outline: none;
     }
     
     /* Button styling */
     .btn-primary {
-        background: linear-gradient(135deg, #0d6efd, #0a58ca);
+        background: #0d6efd;
         border: none;
+        border-radius: 8px;
         transition: all 0.3s ease;
     }
     
     .btn-primary:hover {
-        background: linear-gradient(135deg, #0b5ed7, #084298);
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(13, 110, 253, 0.3);
+        background: #0b5ed7;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
     }
     
     /* Responsive adjustments */
     @media (max-width: 768px) {
-        .col-md-6:last-child {
+        .col-md-7:last-child {
             background-color: #ffffff !important;
+        }
+    }
+    
+    /* Fix for column selectors */
+    @media (min-width: 768px) {
+        .col-md-5, .col-md-7 {
+            padding: 0 !important;
         }
     }
 </style>

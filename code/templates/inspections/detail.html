@@ -6,8 +6,6 @@
 {% block page_title %}AI Classification{% endblock %}
 {% block page_subtitle %}Review detailed analysis{% endblock %}
 
-
-
 {% block content %}
 <!-- Navigation Bar -->
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -108,7 +106,10 @@
             <div class="card-header bg-transparent border-0 pt-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold">AI Classification</h5>
-                    <span class="badge {% if inspection.ai_classification == 'good' %}bg-success{% elif inspection.ai_classification == 'defect' %}bg-danger{% else %}bg-secondary{% endif %} px-3 py-2 fs-6">
+                    <span class="badge 
+                        {% if inspection.ai_classification == 'good' %}badge-soft-success
+                        {% elif inspection.ai_classification == 'defect' %}badge-soft-danger
+                        {% else %}badge-soft-secondary{% endif %} px-3 py-2 fs-6">
                         {{ inspection.ai_classification|upper|default:"PENDING" }}
                     </span>
                 </div>
@@ -118,7 +119,12 @@
                     <h6 class="text-bold mb-2">Confidence Score</h6>
                     <div class="d-flex align-items-center gap-2">
                         <div class="progress flex-grow-1" style="height: 12px; border-radius: 10px;">
-                            <div class="progress-bar bg-success" style="width: {% widthratio inspection.ai_confidence 1 100 %}%; border-radius: 10px;"></div>
+                            <div class="progress-bar 
+                                {% if inspection.ai_confidence > review_threshold %}progress-bar-success
+                                {% elif inspection.ai_confidence > 0.6 %}progress-bar-warning
+                                {% else %}progress-bar-danger{% endif %}" 
+                                style="width: {% widthratio inspection.ai_confidence 1 100 %}%; border-radius: 10px;">
+                            </div>
                         </div>
                         <span class="fw-bold" style="min-width: 45px;">
                             {% if inspection.ai_confidence %}{% widthratio inspection.ai_confidence 1 100 %}%{% else %}-{% endif %}
@@ -167,7 +173,10 @@
                         <div class="col-6">
                             <div class="p-3 rounded-3 text-center" style="background-color: #fff; border-left: 3px solid #6c757d;">
                                 <small class="text-bold d-block mb-2">AI Decision</small>
-                                <span class="badge {% if inspection.ai_classification == 'good' %}bg-success{% elif inspection.ai_classification == 'defect' %}bg-danger{% else %}bg-secondary{% endif %} fs-6 px-3 py-2">
+                                <span class="badge 
+                                    {% if inspection.ai_classification == 'good' %}badge-soft-success
+                                    {% elif inspection.ai_classification == 'defect' %}badge-soft-danger
+                                    {% else %}badge-soft-secondary{% endif %} fs-6 px-3 py-2">
                                     {{ inspection.ai_classification|title|default:"Pending" }}
                                 </span>
                             </div>
@@ -175,7 +184,10 @@
                         <div class="col-6">
                             <div class="p-3 rounded-3 text-center" style="background-color: #fff; border-left: 3px solid #6c757d;">
                                 <small class="text-bold d-block mb-2">Your Override</small>
-                                <span class="badge {% if inspection.override.new_classification == 'good' %}bg-success{% elif inspection.override.new_classification == 'defect' %}bg-danger{% else %}bg-secondary{% endif %} fs-6 px-3 py-2" id="overridePreview">
+                                <span class="badge 
+                                    {% if inspection.override.new_classification == 'good' %}badge-soft-success
+                                    {% elif inspection.override.new_classification == 'defect' %}badge-soft-danger
+                                    {% else %}badge-soft-secondary{% endif %} fs-6 px-3 py-2" id="overridePreview">
                                     {{ inspection.override.new_classification|title|default:"Not set" }}
                                 </span>
                             </div>
@@ -186,7 +198,7 @@
                         <button type="button" class="btn btn-outline-secondary px-4" onclick="cancelOverride()">
                             <i class="fas fa-times me-2"></i>Cancel
                         </button>
-                        <button type="button" class="btn btn-warning px-4" onclick="submitOverride()">
+                        <button type="button" class="btn btn-primary px-4" onclick="submitOverride()">
                             <i class="fas fa-save me-2"></i>Save & Continue
                         </button>
                     </div>
@@ -307,7 +319,6 @@
                 img.style.cursor = currentZoom > 1 ? 'grab' : 'zoom-in';
             }
             
-            // Optional: Display zoom percentage (can be added to UI)
             console.log(`Zoom level: ${Math.round(currentZoom * 100)}%`);
         }
     }
@@ -370,13 +381,13 @@
 
         if (selectedValue === 'good') {
             previewSpan.textContent = 'Good';
-            previewSpan.className = 'badge bg-success fs-6 px-3 py-2';
+            previewSpan.className = 'badge badge-soft-success fs-6 px-3 py-2';
         } else if (selectedValue === 'defect') {
             previewSpan.textContent = 'Defective';
-            previewSpan.className = 'badge bg-danger fs-6 px-3 py-2';
+            previewSpan.className = 'badge badge-soft-danger fs-6 px-3 py-2';
         } else {
             previewSpan.textContent = 'Not set';
-            previewSpan.className = 'badge bg-secondary fs-6 px-3 py-2';
+            previewSpan.className = 'badge badge-soft-secondary fs-6 px-3 py-2';
         }
     });
 

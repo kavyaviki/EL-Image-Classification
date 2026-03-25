@@ -157,7 +157,6 @@ body {
     margin-left: 280px;
     padding: 2rem;
     width: calc(100% - 280px);
-    background-color: #f2f5fe !important;
 }
 
 /* Top Bar */
@@ -408,6 +407,68 @@ body {
     background: #3b82f6 !important;
 }
 
+/* Soft/Pastel Badges */
+/* Soft/Pastel Badges with Border and Rounded Corners */
+.badge-soft-success {
+    background-color: #f0fdf4 !important;
+    color: #065f46 !important;
+    font-weight: 500;
+    border: 1px solid #065f46 !important;
+    border-radius: 12px !important;
+}
+
+.badge-soft-danger {
+    background-color: #fef2f2 !important;
+    color: #991b1b !important;
+    font-weight: 500;
+    border: 1px solid #ef4444 !important;
+    border-radius: 12px !important;
+}
+
+.badge-soft-warning {
+    background-color: #fed7aa !important;
+    color: #9b2c1d !important;
+    font-weight: 500;
+    border: 1px solid #f97316 !important;
+    border-radius: 12px !important;
+}
+
+.badge-warning{
+    background-color: #FFDEAC !important;
+    color: #C17400 !important;
+    font-weight: 500;
+    border: 1px solid #C17400 !important;
+    border-radius: 12px !important;
+}
+
+.badge-soft-secondary {
+    background-color: #e5e7eb !important;
+    color: #374151 !important;
+    font-weight: 500;
+    border: 1px solid #6c757d !important;
+    border-radius: 12px !important;
+}
+
+.badge-soft-primary {
+    background-color: #dbeafe !important;
+    color: #1e40af !important;
+    font-weight: 500;
+    border: 1px solid #3b82f6 !important;
+    border-radius: 12px !important;
+}
+
+/* Progress Bar Custom Colors */
+.progress-bar-success {
+    background-color: #00C950 !important;
+}
+
+.progress-bar-danger {
+    background-color: #FB2C36 !important;
+}
+
+.progress-bar-warning {
+    background-color: #f59e0b !important;
+}
 
 
 /* Alerts */
