@@ -3,3 +3,6 @@ django-crispy-forms
 crispy-bootstrap5
 python-decouple
 requests
+psycopg2
+boto3
+Pillow
