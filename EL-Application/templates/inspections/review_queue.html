@@ -1,0 +1,211 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Review Queue{% endblock %}
+
+{% block page_title %}Review Queue{% endblock %}
+{% block page_subtitle %}Review and update inspections that need attention{% endblock %}
+
+{% block extra_css %}
+<style>
+    .main-content {
+        background-color: rgba(243, 246, 255) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" id="filterForm">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control" placeholder="Search by file name"
+                        value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <input type="date" name="date_from" class="form-control" placeholder="From Date"
+                            value="{{ request.GET.date_from }}">
+                        <span class="input-group-text">to</span>
+                        <input type="date" name="date_to" class="form-control" placeholder="To Date"
+                            value="{{ request.GET.date_to }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1">
+                            <i class="fas fa-filter me-2"></i>Filter
+                        </button>
+                        <a href="{% url 'inspections:review_queue' %}" class="btn btn-outline-secondary flex-grow-1">
+                            <i class="fas fa-undo me-2"></i>Reset
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Review Queue Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="px-4 py-3">File Name</th>
+                        <th class="py-3">Upload Date</th>
+                        <th class="py-3">Status</th>
+                        <th class="py-3">Confidence</th>
+                        <th class="px-4 py-3">Action</th>
+                    </thead>
+                <tbody>
+                    {% for inspection in page_obj %}
+                    <tr>
+                        <td class="px-4 py-3">
+                            <i class="fas fa-file-image me-2 text-primary"></i>
+                            {{ inspection.name|truncatechars:40 }}
+                        </td>
+                        <td class="py-3">{{ inspection.uploaded_at|date:"Y-m-d H:i" }}</td>
+                        <td class="py-3">
+                            <span class="badge 
+                                {% if inspection.human_override %}badge-soft-success
+                                {% else %}badge-soft-warning{% endif %} px-3 py-2" style="font-size: 0.85rem;">
+                                {% if inspection.human_override %}
+                                    Reviewed
+                                {% else %}
+                                    Pending
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="py-3">
+                            {% if inspection.ai_confidence %}
+                            <div class="d-flex flex-column gap-1" style="min-width: 160px;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height: 8px;">
+                                        <div class="progress-bar 
+                                            {% if inspection.ai_classification == 'good' %}progress-bar-success
+                                            {% else %}progress-bar-danger{% endif %}"
+                                            style="width: {% widthratio inspection.ai_confidence 1 100 %}%">
+                                        </div>
+                                    </div>
+                                    <span class="text-muted small" style="min-width: 45px;">
+                                        {% widthratio inspection.ai_confidence 1 100 %}%
+                                    </span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="d-flex align-items-center gap-2" style="min-width: 160px;">
+                                <div class="progress flex-grow-1" style="height: 8px;">
+                                    <div class="progress-bar bg-secondary" style="width: 100%">
+                                    </div>
+                                </div>
+                                <span class="text-muted small">-</span>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <a href="{% url 'inspections:detail' inspection.id %}?from_review_queue=true"
+                                class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i>{% if inspection.human_override %}View{% else %}Review{% endif %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
+                            <h5>No pending items in review queue</h5>
+                            <p class="text-muted">
+                                All inspections have been reviewed or have confidence above threshold.
+                            </p>
+                            <a href="{% url 'inspections:upload' %}" class="btn btn-primary mt-2">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>Upload New Images
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer bg-white border-top-0 py-3">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            {{ num }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            <div class="text-center text-muted mt-2 small">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-submit form when filters change
+    document.querySelectorAll('#filterForm select, #filterForm input[type="date"]').forEach(element => {
+        element.addEventListener('change', function () {
+            document.getElementById('filterForm').submit();
+        });
+    });
+
+    // For search, submit only after typing stops (debounce)
+    let searchTimeout;
+    document.querySelector('input[name="search"]').addEventListener('input', function () {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            document.getElementById('filterForm').submit();
+        }, 500);
+    });
+</script>
+{% endblock %}

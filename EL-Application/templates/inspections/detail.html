@@ -1,0 +1,412 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Inspection Details{% endblock %}
+
+{% block page_title %}AI Classification{% endblock %}
+{% block page_subtitle %}Review detailed analysis{% endblock %}
+
+{% block content %}
+<!-- Navigation Bar -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        {% if from_review_queue %}
+        <a href="{% url 'inspections:review_queue' %}" class="btn btn-link text-decoration-none text-dark">
+            <i class="fas fa-arrow-left me-2"></i>Back to Review Queue
+        </a>
+        {% else %}
+        <a href="{% url 'inspections:list' %}" class="btn btn-link text-decoration-none text-dark">
+            <i class="fas fa-arrow-left me-2"></i>Back to Results
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left Column - Image -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-body text-center p-4">
+                <!-- Image Header with Name and Zoom Controls -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">{{ inspection.name }}</h5>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="zoomOut()">
+                            <i class="fas fa-search-minus"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetZoom()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="zoomIn()">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Image with zoom container - Supports panning -->
+                <div class="image-container" style="overflow: auto; max-height: 500px; background-color: #f8f9fa; border-radius: 8px; cursor: grab;">
+                    {% if inspection.s3_key %}
+                    <div style="display: inline-block; min-width: 100%;">
+                        <img id="inspectionImage" 
+                             src="{% url 'inspections:serve_image' inspection.id %}" 
+                             alt="{{ inspection.name }}"
+                             style="display: block; width: 100%; height: auto; transition: transform 0.2s ease; transform-origin: 0 0;"
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/500?text=Image+Not+Found';">
+                    </div>
+                    {% else %}
+                    <div class="bg-light rounded-3 p-5 text-center">
+                        <i class="fas fa-image fa-5x text-muted"></i>
+                        <p class="mt-2 text-muted">No image available</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <p class="text-muted mb-2">Uploaded {{ inspection.uploaded_at|timesince }} ago</p>
+
+                <!-- Previous/Next Navigation with Counter -->
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div>
+                        {% if previous_inspection %}
+                        <a href="{% url 'inspections:detail' previous_inspection.id %}{% if from_review_queue %}?from_review_queue=true{% endif %}"
+                            class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
+                            <i class="fas fa-chevron-left"></i>Previous
+                        </a>
+                        {% else %}
+                        <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" disabled>
+                            <i class="fas fa-chevron-left"></i>Previous
+                        </button>
+                        {% endif %}
+                    </div>
+                    <span class="text-muted">
+                        {% if current_index > 0 and total_count > 0 %}
+                        {{ current_index }} of {{ total_count }}
+                        {% endif %}
+                    </span>
+                    <div>
+                        {% if next_inspection %}
+                        <a href="{% url 'inspections:detail' next_inspection.id %}{% if from_review_queue %}?from_review_queue=true{% endif %}"
+                            class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
+                            Next<i class="fas fa-chevron-right"></i>
+                        </a>
+                        {% else %}
+                        <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" disabled>
+                            Next<i class="fas fa-chevron-right"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column - AI Classification - 4 columns -->
+    <div class="col-md-4">
+        <!-- AI Classification Card -->
+        <div class="card mb-4 border-0 shadow-sm" style="background-color: #eff6ff;">
+            <div class="card-header bg-transparent border-0 pt-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold">AI Classification</h5>
+                    <span class="badge 
+                        {% if inspection.ai_classification == 'good' %}badge-soft-success
+                        {% elif inspection.ai_classification == 'defect' %}badge-soft-danger
+                        {% else %}badge-soft-secondary{% endif %} px-3 py-2 fs-6">
+                        {{ inspection.ai_classification|upper|default:"PENDING" }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div>
+                    <h6 class="text-bold mb-2">Confidence Score</h6>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="progress flex-grow-1" style="height: 12px; border-radius: 10px;">
+                            <div class="progress-bar 
+                                {% if inspection.ai_confidence > review_threshold %}progress-bar-success
+                                {% elif inspection.ai_confidence > 0.6 %}progress-bar-warning
+                                {% else %}progress-bar-danger{% endif %}" 
+                                style="width: {% widthratio inspection.ai_confidence 1 100 %}%; border-radius: 10px;">
+                            </div>
+                        </div>
+                        <span class="fw-bold" style="min-width: 45px;">
+                            {% if inspection.ai_confidence %}{% widthratio inspection.ai_confidence 1 100 %}%{% else %}-{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Human Override Card -->
+        <div class="card mb-4 border-0 shadow-sm" style="background-color: #fff7ed;">
+            <div class="card-header bg-transparent border-0 pt-4">
+                <h5 class="mb-0 fw-bold">Human Override</h5>
+            </div>
+            <div class="card-body pt-0">
+                <form id="overrideForm">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label for="classification" class="form-label fw-bold mb-2">Override Classification</label>
+                        <select name="classification" id="classification" class="form-select" style="background-color: #fff; border: 1px solid #dee2e6;" required>
+                            <option value="">Select classification...</option>
+                            <option value="good" {% if inspection.ai_classification == 'good' and not inspection.human_override %}selected{% endif %} {% if inspection.override and inspection.override.new_classification == 'good' %}selected{% endif %}>Good</option>
+                            <option value="defect" {% if inspection.ai_classification == 'defect' and not inspection.human_override %}selected{% endif %} {% if inspection.override and inspection.override.new_classification == 'defect' %}selected{% endif %}>Defective</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="reason" class="form-label fw-bold mb-2">Reason <span class="text-danger">*</span></label>
+                        <select name="reason" id="reason" class="form-select" style="background-color: #fff; border: 1px solid #dee2e6;" required>
+                            <option value="">Select a reason...</option>
+                            <option value="AI missed defect" {% if inspection.override and inspection.override.reason == 'AI missed defect' %}selected{% endif %}>AI missed defect</option>
+                            <option value="False positive" {% if inspection.override and inspection.override.reason == 'False positive' %}selected{% endif %}>False positive</option>
+                            <option value="Borderline case" {% if inspection.override and inspection.override.reason == 'Borderline case' %}selected{% endif %}>Borderline case</option>
+                            <option value="Manual review required" {% if inspection.override and inspection.override.reason == 'Manual review required' %}selected{% endif %}>Manual review required</option>
+                            <option value="Other" {% if inspection.override and inspection.override.reason == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="notes" class="form-label fw-bold mb-2">Notes</label>
+                        <textarea name="notes" id="notes" class="form-control" rows="3" style="background-color: #fff; border: 1px solid #dee2e6; resize: none;" placeholder="Add any additional notes or observations...">{{ inspection.override.notes|default:'' }}</textarea>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <div class="p-3 rounded-3 text-center" style="background-color: #fff; border-left: 3px solid #6c757d;">
+                                <small class="text-bold d-block mb-2">AI Decision</small>
+                                <span class="badge 
+                                    {% if inspection.ai_classification == 'good' %}badge-soft-success
+                                    {% elif inspection.ai_classification == 'defect' %}badge-soft-danger
+                                    {% else %}badge-soft-secondary{% endif %} fs-6 px-3 py-2">
+                                    {{ inspection.ai_classification|title|default:"Pending" }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 rounded-3 text-center" style="background-color: #fff; border-left: 3px solid #6c757d;">
+                                <small class="text-bold d-block mb-2">Your Override</small>
+                                <span class="badge 
+                                    {% if inspection.override.new_classification == 'good' %}badge-soft-success
+                                    {% elif inspection.override.new_classification == 'defect' %}badge-soft-danger
+                                    {% else %}badge-soft-secondary{% endif %} fs-6 px-3 py-2" id="overridePreview">
+                                    {{ inspection.override.new_classification|title|default:"Not set" }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-4">
+                        <button type="button" class="btn btn-outline-secondary px-4" onclick="cancelOverride()">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary px-4" onclick="submitOverride()">
+                            <i class="fas fa-save me-2"></i>Save & Continue
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Zoom and Pan functionality
+    let currentZoom = 1;
+    const zoomStep = 0.1;
+    const maxZoom = 3;
+    const minZoom = 0.5;
+    
+    let isPanning = false;
+    let startX, startY;
+    let scrollLeft, scrollTop;
+    let container;
+    let img;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        container = document.querySelector('.image-container');
+        img = document.getElementById('inspectionImage');
+        
+        if (container && img) {
+            // Set initial cursor
+            container.style.cursor = 'grab';
+            
+            // Mouse events for panning
+            container.addEventListener('mousedown', startPanning);
+            container.addEventListener('mousemove', pan);
+            container.addEventListener('mouseup', stopPanning);
+            container.addEventListener('mouseleave', stopPanning);
+            
+            // Prevent default drag behavior
+            container.addEventListener('dragstart', function(e) {
+                e.preventDefault();
+                return false;
+            });
+            
+            // Click to toggle zoom on image
+            img.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (currentZoom === 1) {
+                    zoomIn();
+                } else {
+                    resetZoom();
+                }
+            });
+        }
+    });
+    
+    function startPanning(e) {
+        if (currentZoom > 1 && container) {
+            isPanning = true;
+            startX = e.pageX - container.offsetLeft;
+            startY = e.pageY - container.offsetTop;
+            scrollLeft = container.scrollLeft;
+            scrollTop = container.scrollTop;
+            container.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    }
+    
+    function pan(e) {
+        if (!isPanning || !container) return;
+        e.preventDefault();
+        const x = e.pageX - container.offsetLeft;
+        const y = e.pageY - container.offsetTop;
+        const walkX = (x - startX);
+        const walkY = (y - startY);
+        container.scrollLeft = scrollLeft - walkX;
+        container.scrollTop = scrollTop - walkY;
+    }
+    
+    function stopPanning() {
+        if (container) {
+            isPanning = false;
+            container.style.cursor = currentZoom > 1 ? 'grab' : 'default';
+        }
+    }
+    
+    function zoomIn() {
+        if (currentZoom < maxZoom) {
+            currentZoom += zoomStep;
+            applyZoom();
+        }
+    }
+    
+    function zoomOut() {
+        if (currentZoom > minZoom) {
+            currentZoom -= zoomStep;
+            applyZoom();
+        }
+    }
+    
+    function resetZoom() {
+        currentZoom = 1;
+        applyZoom();
+        if (container) {
+            container.scrollLeft = 0;
+            container.scrollTop = 0;
+        }
+    }
+    
+    function applyZoom() {
+        const img = document.getElementById('inspectionImage');
+        if (img) {
+            img.style.transform = `scale(${currentZoom})`;
+            img.style.transformOrigin = '0 0';
+            
+            if (container) {
+                container.style.cursor = currentZoom > 1 ? 'grab' : 'default';
+                img.style.cursor = currentZoom > 1 ? 'grab' : 'zoom-in';
+            }
+            
+            console.log(`Zoom level: ${Math.round(currentZoom * 100)}%`);
+        }
+    }
+
+    function submitOverride() {
+        const classification = document.getElementById('classification').value;
+        const reason = document.getElementById('reason').value;
+
+        if (!classification) {
+            alert('Please select a classification (Good or Defective)');
+            return;
+        }
+
+        if (!reason) {
+            alert('Please select a reason');
+            return;
+        }
+
+        const form = document.getElementById('overrideForm');
+        const formData = new FormData(form);
+
+        const submitBtn = document.querySelector('button[onclick="submitOverride()"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+        submitBtn.disabled = true;
+
+        fetch(`/inspections/api/override/{{ inspection.id }}/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Override saved successfully');
+                    window.location.reload();
+                } else {
+                    alert('❌ Failed to save override: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error saving override: ' + error.message);
+            })
+            .finally(() => {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
+    }
+
+    function cancelOverride() {
+        window.location.reload();
+    }
+
+    document.getElementById('classification').addEventListener('change', function () {
+        const previewSpan = document.getElementById('overridePreview');
+        const selectedValue = this.value;
+
+        if (selectedValue === 'good') {
+            previewSpan.textContent = 'Good';
+            previewSpan.className = 'badge badge-soft-success fs-6 px-3 py-2';
+        } else if (selectedValue === 'defect') {
+            previewSpan.textContent = 'Defective';
+            previewSpan.className = 'badge badge-soft-danger fs-6 px-3 py-2';
+        } else {
+            previewSpan.textContent = 'Not set';
+            previewSpan.className = 'badge badge-soft-secondary fs-6 px-3 py-2';
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('overrideForm');
+        let formChanged = false;
+
+        if (form) {
+            form.addEventListener('change', function () {
+                formChanged = true;
+            });
+
+            window.addEventListener('beforeunload', function (e) {
+                if (formChanged) {
+                    e.preventDefault();
+                    e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

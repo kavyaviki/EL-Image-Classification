@@ -1,0 +1,272 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Upload EL Images{% endblock %}
+
+{% block page_title %}Upload EL Images{% endblock %}
+{% block page_subtitle %}Upload solar panel EL images for AI-based quality inspection and defect detection{% endblock %}
+
+{% block extra_css %}
+<style>
+    .main-content {
+        background-color: rgba(243, 246, 255) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <!-- Upload Area - Fixed click handling -->
+                    <div class="upload-area text-center p-5 border border-2 border-dashed rounded-3 mb-4" 
+                         style="cursor: pointer; background-color: #f8f9fa; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"
+                         id="uploadArea"
+                         ondragover="event.preventDefault(); this.classList.add('border-primary', 'bg-light');"
+                         ondragleave="this.classList.remove('border-primary', 'bg-light');"
+                         ondrop="handleDrop(event)">
+                        
+                        <i class="fas fa-cloud-upload-alt fa-4x text-primary mb-3"></i>
+                        <h4 class="mb-2">Drag & drop EL images here</h4>
+                        <p class="text-muted mb-3">or</p>
+                        
+                        <button type="button" class="btn btn-outline-primary px-4 py-2" id="browseBtn">
+                            Browse Files
+                        </button>
+                        
+                        <input type="file" id="fileInput" name="images" multiple accept="image/*" style="display: none;">
+                        
+                        <div class="mt-4 text-muted small">
+                            Supported formats: PNG, JPG • Max file size: 50MB
+                        </div>
+                    </div>
+
+                    <!-- File Preview -->
+                    <div id="previewContainer" class="row g-3 mb-4" style="display: none;"></div>
+
+                    <!-- Upload Button -->
+                    <div class="text-center">
+                        <button type="button" id="submitBtn" class="btn btn-primary px-5 py-2" disabled>
+                            <i class="fas fa-upload me-2"></i>Upload Images
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recent Uploads -->
+        <div class="card mt-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Uploads</h5>
+                <a href="{% url 'inspections:list' %}" class="btn btn-link text-decoration-none">View All →</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="px-4">File Name</th>
+                                <th>Uploaded</th>
+                                <th>Status</th>
+                                <th class="px-4">Action</th>
+                            </thead>
+                        <tbody>
+                            {% for inspection in recent_inspections %}
+                            <tr>
+                                <td class="px-4">{{ inspection.name }}</td>
+                                <td>{{ inspection.uploaded_at|timesince }} ago</td>
+                                <td>
+                                    <span class="badge {% if inspection.status == 'completed' %}bg-success{% elif inspection.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %} px-3 py-2">
+                                        {{ inspection.get_status_display }}
+                                    </span>
+                                </td>
+                                <td class="px-4">
+                                    <a href="{% url 'inspections:detail' inspection.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
+                                    <p>No uploads yet. Start by uploading images above.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedFiles = [];
+
+function handleFiles(files) {
+    selectedFiles = Array.from(files);
+    updatePreview();
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('border-primary', 'bg-light');
+    
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+        selectedFiles = Array.from(files);
+        updatePreview();
+    }
+}
+
+function updatePreview() {
+    const previewContainer = document.getElementById('previewContainer');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (selectedFiles.length > 0) {
+        previewContainer.style.display = 'flex';
+        submitBtn.disabled = false;
+        
+        let html = '';
+        selectedFiles.forEach((file, index) => {
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            html += `
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center p-3">
+                            <i class="fas fa-file-image fa-3x text-primary mb-2"></i>
+                            <p class="small text-truncate mb-1">${escapeHtml(file.name)}</p>
+                            <small class="text-muted">${fileSize} MB</small>
+                            <button type="button" class="btn btn-sm btn-danger mt-2" onclick="removeFile(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        previewContainer.innerHTML = html;
+    } else {
+        previewContainer.style.display = 'none';
+        submitBtn.disabled = true;
+    }
+}
+
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    const dt = new DataTransfer();
+    selectedFiles.forEach(file => dt.items.add(file));
+    document.getElementById('fileInput').files = dt.files;
+    updatePreview();
+}
+
+function submitUpload(event) {
+    // Prevent event bubbling to parent elements
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    if (selectedFiles.length === 0) {
+        alert('Please select files to upload');
+        return;
+    }
+
+    const formData = new FormData();
+    selectedFiles.forEach(file => {
+        // Append each file only once (fixed duplicate issue)
+        formData.append('images', file);
+    });
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+    const submitBtn = document.getElementById('submitBtn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+    submitBtn.disabled = true;
+
+    fetch('/inspections/api/upload/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Success! ${data.file_count} image(s) uploaded. Job ID: ${data.job_id}`);
+            window.location.reload();
+        } else {
+            alert('❌ Upload failed: ' + (data.error || 'Unknown error'));
+            // Re-enable button on failure
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Upload failed: ' + error.message);
+        // Re-enable button on error
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+// Helper function to escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Setup event listeners when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const browseBtn = document.getElementById('browseBtn');
+    const fileInput = document.getElementById('fileInput');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Handle click on upload area (but not on browse button)
+    if (uploadArea) {
+        uploadArea.addEventListener('click', function(e) {
+            // Don't trigger if clicking on browse button
+            if (browseBtn && (e.target === browseBtn || browseBtn.contains(e.target))) {
+                return;
+            }
+            fileInput.click();
+        });
+    }
+    
+    // Handle browse button click
+    if (browseBtn) {
+        browseBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent bubbling to upload area
+            fileInput.click();
+        });
+    }
+    
+    // Handle file input change
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            handleFiles(this.files);
+        });
+    }
+    
+    // Handle upload button click
+    if (submitBtn) {
+        submitBtn.addEventListener('click', submitUpload);
+    }
+});
+
+// Global drag and drop prevention
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => e.preventDefault());
+</script>
+{% endblock %}
