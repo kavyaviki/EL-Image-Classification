@@ -3,3 +3,9 @@ django-crispy-forms
 crispy-bootstrap5
 python-decouple
 requests
+psycopg2
+psycopg
+psycopg2-binary
+boto3
+Pillow
+whitenoise
