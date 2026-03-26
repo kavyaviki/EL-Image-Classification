@@ -1,0 +1,479 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Upload EL Images{% endblock %}
+
+{% block page_title %}Upload EL Images{% endblock %}
+{% block page_subtitle %}Upload solar panel EL images for AI-based quality inspection and defect detection{% endblock %}
+
+{% block extra_css %}
+<style>
+    .main-content {
+        background-color: rgba(243, 246, 255) !important;
+    }
+
+    /* Toast Notification Styles */
+    .toast-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 320px;
+        max-width: 450px;
+        animation: slideInRight 0.3s ease-out;
+    }
+
+    .toast-notification .toast {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
+        border: none;
+        overflow: hidden;
+    }
+
+    .toast-notification .toast-header {
+        border: none;
+        padding: 12px 16px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .toast-notification .toast-body {
+        padding: 12px 16px;
+        font-size: 14px;
+        color: #5a6874;
+    }
+
+    .toast-notification .toast-header i {
+        margin-right: 10px;
+        font-size: 18px;
+    }
+
+    /* Success toast */
+    .toast-notification.success .toast-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .toast-notification.success .toast-header i {
+        color: white;
+    }
+
+    /* Error toast */
+    .toast-notification.error .toast-header {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .toast-notification.error .toast-header i {
+        color: white;
+    }
+
+    /* Info toast */
+    .toast-notification.info .toast-header {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+
+    /* Warning toast */
+    .toast-notification.warning .toast-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+    }
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+
+    .toast-notification.hide {
+        animation: slideOutRight 0.3s ease-out forwards;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- Upload Area - Fixed click handling -->
+                    <div class="upload-area text-center p-5 border border-2 border-dashed rounded-3 mb-4"
+                        style="cursor: pointer; background-color: #f8f9fa; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"
+                        id="uploadArea"
+                        ondragover="event.preventDefault(); this.classList.add('border-primary', 'bg-light');"
+                        ondragleave="this.classList.remove('border-primary', 'bg-light');" ondrop="handleDrop(event)">
+
+                        <i class="fas fa-cloud-upload-alt fa-4x text-primary mb-3"></i>
+                        <h4 class="mb-2">Drag & drop EL images here</h4>
+                        <p class="text-muted mb-3">or</p>
+
+                        <button type="button" class="btn btn-outline-primary px-4 py-2" id="browseBtn">
+                            Browse Files
+                        </button>
+
+                        <input type="file" id="fileInput" name="images" multiple accept="image/*"
+                            style="display: none;">
+
+                        <div class="mt-4 text-muted small">
+                            Supported formats: PNG, JPG • Max file size: 50MB
+                        </div>
+                    </div>
+
+                    <!-- File Preview -->
+                    <div id="previewContainer" class="row g-3 mb-4" style="display: none;"></div>
+
+                    <!-- Upload Button -->
+                    <div class="text-center">
+                        <button type="button" id="submitBtn" class="btn btn-primary px-5 py-2" disabled>
+                            <i class="fas fa-upload me-2"></i>Upload Images
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recent Uploads -->
+        <div class="card mt-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Uploads</h5>
+                <a href="{% url 'inspections:list' %}" class="btn btn-link text-decoration-none">View All →</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="px-4">File Name</th>
+                                <th>Uploaded</th>
+                                <th>Status</th>
+                                <th class="px-4">Action</th>
+                        </thead>
+                        <tbody>
+                            {% for inspection in recent_inspections %}
+                            <tr>
+                                <td class="px-4">{{ inspection.name }}</td>
+                                <td>{{ inspection.uploaded_at|timesince }} ago</td>
+                                <td>
+                                    <span
+                                        class="badge {% if inspection.status == 'completed' %}bg-success{% elif inspection.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %} px-3 py-2">
+                                        {{ inspection.get_status_display }}
+                                    </span>
+                                </td>
+                                <td class="px-4">
+                                    <a href="{% url 'inspections:detail' inspection.id %}"
+                                        class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
+                                    <p>No uploads yet. Start by uploading images above.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let selectedFiles = [];
+
+    function handleFiles(files) {
+        selectedFiles = Array.from(files);
+        updatePreview();
+    }
+
+    function handleDrop(event) {
+        event.preventDefault();
+        event.currentTarget.classList.remove('border-primary', 'bg-light');
+
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            selectedFiles = Array.from(files);
+            updatePreview();
+        }
+    }
+
+    function updatePreview() {
+        const previewContainer = document.getElementById('previewContainer');
+        const submitBtn = document.getElementById('submitBtn');
+
+        if (selectedFiles.length > 0) {
+            previewContainer.style.display = 'flex';
+            submitBtn.disabled = false;
+
+            let html = '';
+            selectedFiles.forEach((file, index) => {
+                const fileSize = (file.size / 1024 / 1024).toFixed(2);
+                html += `
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center p-3">
+                            <i class="fas fa-file-image fa-3x text-primary mb-2"></i>
+                            <p class="small text-truncate mb-1">${escapeHtml(file.name)}</p>
+                            <small class="text-muted">${fileSize} MB</small>
+                            <button type="button" class="btn btn-sm btn-danger mt-2" onclick="removeFile(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            });
+            previewContainer.innerHTML = html;
+        } else {
+            previewContainer.style.display = 'none';
+            submitBtn.disabled = true;
+        }
+    }
+
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        const dt = new DataTransfer();
+        selectedFiles.forEach(file => dt.items.add(file));
+        document.getElementById('fileInput').files = dt.files;
+        updatePreview();
+    }
+
+    // Toast Notification System
+    function showToast(message, type = 'success', duration = 5000) {
+        // Remove existing toasts
+        const existingToasts = document.querySelectorAll('.toast-notification');
+        existingToasts.forEach(toast => toast.remove());
+
+        // Create toast container
+        const toastContainer = document.createElement('div');
+        toastContainer.className = `toast-notification ${type}`;
+
+        // Icon mapping
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-times-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        const icon = icons[type] || 'fa-check-circle';
+        const title = type.charAt(0).toUpperCase() + type.slice(1);
+
+        // Create toast HTML
+        toastContainer.innerHTML = `
+        <div class="toast" role="alert" data-bs-autohide="true">
+            <div class="toast-header">
+                <i class="fas ${icon}"></i>
+                <strong class="me-auto">${title}</strong>
+                <small>Just now</small>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
+        </div>
+    `;
+
+        document.body.appendChild(toastContainer);
+
+        // Initialize Bootstrap toast
+        const toastElement = toastContainer.querySelector('.toast');
+        const toast = new bootstrap.Toast(toastElement, {
+            autohide: true,
+            delay: duration
+        });
+
+        toast.show();
+
+        // Auto remove after animation
+        toastElement.addEventListener('hidden.bs.toast', function () {
+            toastContainer.classList.add('hide');
+            setTimeout(() => toastContainer.remove(), 300);
+        });
+    }
+
+    // Enhanced loading indicator
+    function showLoadingToast() {
+        const loadingToast = document.createElement('div');
+        loadingToast.className = 'toast-notification info';
+        loadingToast.id = 'loadingToast';
+        loadingToast.innerHTML = `
+        <div class="toast" role="alert">
+            <div class="toast-header">
+                <i class="fas fa-spinner fa-spin"></i>
+                <strong class="me-auto">Processing</strong>
+            </div>
+            <div class="toast-body">
+                <i class="fas fa-upload me-2"></i>Uploading your images...
+            </div>
+        </div>
+    `;
+
+        document.body.appendChild(loadingToast);
+        const toast = new bootstrap.Toast(loadingToast.querySelector('.toast'), {
+            autohide: false
+        });
+        toast.show();
+
+        return loadingToast;
+    }
+
+    function hideLoadingToast() {
+        const loadingToast = document.getElementById('loadingToast');
+        if (loadingToast) {
+            loadingToast.classList.add('hide');
+            setTimeout(() => loadingToast.remove(), 300);
+        }
+    }
+
+    function submitUpload(event) {
+        // Prevent event bubbling to parent elements
+        if (event) {
+            event.stopPropagation();
+        }
+
+        if (selectedFiles.length === 0) {
+            showToast('Please select files to upload', 'warning', 3000);
+            return;
+        }
+
+        const formData = new FormData();
+        selectedFiles.forEach(file => {
+            formData.append('images', file);
+        });
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        const submitBtn = document.getElementById('submitBtn');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+        submitBtn.disabled = true;
+
+        // Show loading toast
+        const loadingToast = showLoadingToast();
+
+        fetch('/inspections/api/upload/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading toast
+                hideLoadingToast();
+
+                if (data.success) {
+                    // Show success toast with file count
+                    // const message = `✅ Successfully uploaded ${data.file_count} image(s)!<br><small class="text-muted">Job ID: ${data.job_id}</small>`;
+                    const message = `✅ Successfully uploaded ${data.file_count} image(s)!`;
+                    showToast(message, 'success', 60000);
+
+                    // Refresh page after a short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    // Show error toast
+                    const errorMessage = data.error || 'Upload failed. Please try again.';
+                    showToast(errorMessage, 'error', 6000);
+
+                    // Re-enable button on failure
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Hide loading toast
+                hideLoadingToast();
+
+                // Show error toast
+                showToast(error.message || 'Network error. Please check your connection.', 'error', 6000);
+
+                // Re-enable button on error
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
+    }
+
+    // Helper function to escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Setup event listeners when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function () {
+        const uploadArea = document.getElementById('uploadArea');
+        const browseBtn = document.getElementById('browseBtn');
+        const fileInput = document.getElementById('fileInput');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Handle click on upload area (but not on browse button)
+        if (uploadArea) {
+            uploadArea.addEventListener('click', function (e) {
+                // Don't trigger if clicking on browse button
+                if (browseBtn && (e.target === browseBtn || browseBtn.contains(e.target))) {
+                    return;
+                }
+                fileInput.click();
+            });
+        }
+
+        // Handle browse button click
+        if (browseBtn) {
+            browseBtn.addEventListener('click', function (e) {
+                e.stopPropagation(); // Prevent bubbling to upload area
+                fileInput.click();
+            });
+        }
+
+        // Handle file input change
+        if (fileInput) {
+            fileInput.addEventListener('change', function (e) {
+                handleFiles(this.files);
+            });
+        }
+
+        // Handle upload button click
+        if (submitBtn) {
+            submitBtn.addEventListener('click', submitUpload);
+        }
+    });
+
+    // Global drag and drop prevention
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => e.preventDefault());
+</script>
+{% endblock %}
