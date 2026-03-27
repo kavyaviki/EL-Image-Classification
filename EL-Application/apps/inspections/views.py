@@ -744,13 +744,13 @@ def update_inspection_status(request, pk):
 @login_required
 def export_inspections(request):
     """
-    API endpoint to export selected inspections to Excel.
+    API endpoint to export selected or filtered inspections to Excel.
     
     URL: /inspections/api/export/
     Method: GET
     
     Query Parameters:
-        ids: Comma-separated list of inspection IDs to export
+        ids: Comma-separated list of inspection IDs (UUIDs) to export
         search: Optional search term
         status: Optional status filter
         date_from: Optional start date
@@ -774,23 +774,27 @@ def export_inspections(request):
     except (ValueError, TypeError):
         review_threshold = 0.8
     
-    # Get selected IDs from query parameter
+    # Get selected IDs from query parameter (UUIDs as strings)
     ids_param = request.GET.get('ids', '')
     print(f"IDs parameter: {ids_param}")
     
     selected_ids = []
     if ids_param:
-        selected_ids = [int(id) for id in ids_param.split(',') if id.isdigit()]
+        # Split by comma and keep as strings (UUIDs)
+        selected_ids = [id.strip() for id in ids_param.split(',') if id.strip()]
     
     # Start with all inspections for current user
     inspections = Inspection.objects.filter(uploaded_by=request.user)
     
-    # Apply filters if no specific IDs are selected
+    # PRIORITY: If specific IDs are selected, export only those
     if selected_ids:
+        print(f"Exporting {len(selected_ids)} specific selected inspections: {selected_ids}")
         inspections = inspections.filter(id__in=selected_ids)
-        print(f"Filtered by {len(selected_ids)} specific IDs")
     else:
-        # Apply the same filters as in inspection_list view
+        # Apply filters only if no specific IDs are selected
+        print("No specific IDs selected, applying filters...")
+        
+        # Search filter
         search = request.GET.get('search')
         if search:
             inspections = inspections.filter(name__icontains=search)
@@ -805,24 +809,28 @@ def export_inspections(request):
                     ai_classification='good',
                     ai_confidence__gte=review_threshold
                 )
+                print(f"Applied status filter: good")
             elif status_filter == 'defect':
                 inspections = inspections.filter(
                     status='completed',
                     ai_classification='defect',
                     ai_confidence__gte=review_threshold
                 )
+                print(f"Applied status filter: defect")
             elif status_filter == 'review':
                 inspections = inspections.filter(
                     status='completed',
                     ai_confidence__lt=review_threshold,
                     human_override=False
                 )
+                print(f"Applied status filter: review")
             elif status_filter == 'pending':
                 inspections = inspections.filter(status__in=['queued', 'processing'])
+                print(f"Applied status filter: pending")
             elif status_filter == 'failed':
                 inspections = inspections.filter(status='failed')
-            print(f"Applied status filter: {status_filter}")
-
+                print(f"Applied status filter: failed")
+        
         # Date range filter
         date_from = request.GET.get('date_from')
         date_to = request.GET.get('date_to')
@@ -972,7 +980,10 @@ def export_inspections(request):
     # Save workbook to response
     workbook.save(response)
     
-    print(f"✅ SUCCESS: User {request.user.email} exported {count} inspections to Excel")
+    if selected_ids:
+        print(f"✅ SUCCESS: User {request.user.email} exported {count} selected inspections to Excel")
+    else:
+        print(f"✅ SUCCESS: User {request.user.email} exported {count} filtered inspections to Excel")
     print(f"📁 Filename: {filename}")
     print(f"=" * 50)
 

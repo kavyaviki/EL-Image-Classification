@@ -64,6 +64,9 @@
             <button type="button" id="deselectAllBtn" class="btn btn-outline-secondary bulk-select-btn" style="display: none;" onclick="deselectAll()">
                 <i class="fas fa-square me-2"></i>Deselect All
             </button>
+            <button type="button" id="exportSelectedBtn" class="btn btn-outline-info bulk-select-btn" style="display: none;" onclick="exportSelected()">
+                <i class="fas fa-download me-2"></i>Export Selected (<span id="selectedCount">0</span>)
+            </button>
             <button type="button" id="exportAllBtn" class="btn btn-outline-success export-all-btn" onclick="exportAll()">
                 <i class="fas fa-download me-2"></i>Export All
             </button>
@@ -137,12 +140,17 @@
                         <th class="py-3">Decision Source</th>
                         <th class="py-3">AI Confidence</th>
                         <th class="px-4 py-3">Actions</th>
-                    </thead>
+                    </tr>
+                </thead>
                 <tbody id="resultsTableBody">
                     {% for inspection in page_obj %}
                     <tr class="inspection-row" data-inspection-id="{{ inspection.id }}" data-inspection-name="{{ inspection.name }}">
                         <td class="px-4 py-3" style="width: 40px;">
-                            <input type="checkbox" class="select-checkbox inspection-checkbox" data-id="{{ inspection.id }}" style="display: none;">
+                            <input type="checkbox" 
+                                   class="select-checkbox inspection-checkbox" 
+                                   data-id="{{ inspection.id }}" 
+                                   value="{{ inspection.id }}" 
+                                   style="display: none;">
                         </td>
                         <td class="px-4 py-3">
                             <i class="fas fa-file-image me-2 text-primary"></i>
@@ -278,6 +286,36 @@
     let bulkSelectMode = false;
     let selectedInspections = new Set();
 
+    // Helper function to get inspection ID from checkbox (UUID as string)
+    function getInspectionId(checkbox) {
+        // Try multiple sources in order of priority
+        let id = null;
+        
+        // Try data-id first
+        if (checkbox.dataset.id) {
+            id = checkbox.dataset.id;
+        }
+        // Try value attribute
+        else if (checkbox.value && checkbox.value !== '') {
+            id = checkbox.value;
+        }
+        // Try to get from the row's data attribute
+        else {
+            const row = checkbox.closest('.inspection-row');
+            if (row && row.dataset.inspectionId) {
+                id = row.dataset.inspectionId;
+            }
+        }
+        
+        if (!id) {
+            console.error("Could not extract ID from checkbox", checkbox);
+            return null;
+        }
+        
+        console.log(`Extracted ID: ${id}`);
+        return id; // Return as string (UUID)
+    }
+
     // Toggle bulk select mode
     function toggleBulkSelectMode() {
         bulkSelectMode = !bulkSelectMode;
@@ -286,6 +324,7 @@
         const bulkSelectBtn = document.getElementById('bulkSelectBtn');
         const selectAllBtn = document.getElementById('selectAllBtn');
         const deselectAllBtn = document.getElementById('deselectAllBtn');
+        const exportSelectedBtn = document.getElementById('exportSelectedBtn');
         
         if (bulkSelectMode) {
             // Show checkboxes
@@ -296,6 +335,7 @@
             bulkSelectBtn.classList.add('btn-outline-danger');
             selectAllBtn.style.display = 'inline-block';
             deselectAllBtn.style.display = 'inline-block';
+            exportSelectedBtn.style.display = 'inline-block';
             
             // Add click handler to table rows
             document.querySelectorAll('.inspection-row').forEach(row => {
@@ -311,6 +351,7 @@
             bulkSelectBtn.classList.add('btn-outline-primary');
             selectAllBtn.style.display = 'none';
             deselectAllBtn.style.display = 'none';
+            exportSelectedBtn.style.display = 'none';
             
             // Remove click handler
             document.querySelectorAll('.inspection-row').forEach(row => {
@@ -334,14 +375,23 @@
         const checkbox = row.querySelector('.inspection-checkbox');
         if (checkbox) {
             checkbox.checked = !checkbox.checked;
-            checkbox.dispatchEvent(new Event('change'));
+            // Manually trigger the change event
+            const changeEvent = new Event('change', { bubbles: true });
+            checkbox.dispatchEvent(changeEvent);
         }
     }
     
     // Update selection when checkbox changes
     document.addEventListener('change', function(event) {
         if (event.target.classList && event.target.classList.contains('inspection-checkbox')) {
-            const id = parseInt(event.target.dataset.id);
+            const id = getInspectionId(event.target);
+            if (!id) {
+                console.error("No valid ID found for checkbox", event.target);
+                return;
+            }
+            
+            console.log("Checkbox changed - ID:", id, "Checked:", event.target.checked);
+            
             if (event.target.checked) {
                 selectedInspections.add(id);
                 event.target.closest('tr').classList.add('selected');
@@ -360,13 +410,15 @@
         
         checkboxes.forEach(checkbox => {
             checkbox.checked = selectAllCheckbox.checked;
-            const id = parseInt(checkbox.dataset.id);
-            if (selectAllCheckbox.checked) {
-                selectedInspections.add(id);
-                checkbox.closest('tr').classList.add('selected');
-            } else {
-                selectedInspections.delete(id);
-                checkbox.closest('tr').classList.remove('selected');
+            const id = getInspectionId(checkbox);
+            if (id) {
+                if (selectAllCheckbox.checked) {
+                    selectedInspections.add(id);
+                    checkbox.closest('tr').classList.add('selected');
+                } else {
+                    selectedInspections.delete(id);
+                    checkbox.closest('tr').classList.remove('selected');
+                }
             }
         });
         updateSelectionUI();
@@ -377,9 +429,12 @@
         const checkboxes = document.querySelectorAll('.inspection-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = true;
-            const id = parseInt(checkbox.dataset.id);
-            selectedInspections.add(id);
-            checkbox.closest('tr').classList.add('selected');
+            const id = getInspectionId(checkbox);
+            if (id) {
+                console.log("Select All - Adding ID:", id);
+                selectedInspections.add(id);
+                checkbox.closest('tr').classList.add('selected');
+            }
         });
         updateSelectionUI();
     }
@@ -389,9 +444,12 @@
         const checkboxes = document.querySelectorAll('.inspection-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = false;
-            const id = parseInt(checkbox.dataset.id);
-            selectedInspections.delete(id);
-            checkbox.closest('tr').classList.remove('selected');
+            const id = getInspectionId(checkbox);
+            if (id) {
+                console.log("Deselect All - Removing ID:", id);
+                selectedInspections.delete(id);
+                checkbox.closest('tr').classList.remove('selected');
+            }
         });
         updateSelectionUI();
     }
@@ -408,6 +466,13 @@
     function updateSelectionUI() {
         const selectAllCheckbox = document.getElementById('selectAllCheckbox');
         const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        const selectedCountSpan = document.getElementById('selectedCount');
+        const exportSelectedBtn = document.getElementById('exportSelectedBtn');
+        
+        // Update selected count
+        if (selectedCountSpan) {
+            selectedCountSpan.textContent = selectedInspections.size;
+        }
         
         // Update select all checkbox state
         if (selectAllCheckbox && checkboxes.length > 0) {
@@ -415,8 +480,25 @@
             selectAllCheckbox.checked = allChecked;
             selectAllCheckbox.indeterminate = !allChecked && Array.from(checkboxes).some(cb => cb.checked);
         }
+        
+        // Enable/disable export selected button based on selection
+        if (exportSelectedBtn) {
+            if (selectedInspections.size === 0) {
+                exportSelectedBtn.disabled = true;
+                exportSelectedBtn.style.opacity = '0.5';
+            } else {
+                exportSelectedBtn.disabled = false;
+                exportSelectedBtn.style.opacity = '1';
+            }
+        }
+        
+        // Debug: Log current selection
+        if (selectedInspections.size > 0) {
+            console.log("Current selection:", Array.from(selectedInspections));
+        }
     }
     
+    // Export all filtered results
     function exportAll() {
         // Get current filters from URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -446,6 +528,43 @@
         if (confirm('Export all inspections matching current filters?')) {
             window.location.href = exportUrl;
         }
+    }
+    
+    // Export selected inspections
+    function exportSelected() {
+        if (selectedInspections.size === 0) {
+            alert('Please select at least one inspection to export.');
+            return;
+        }
+        
+        // Convert Set to comma-separated string (UUIDs are strings)
+        const selectedIds = Array.from(selectedInspections).join(',');
+        
+        console.log("Exporting selected IDs:", selectedIds);
+        console.log("Selected IDs Set:", Array.from(selectedInspections));
+        
+        // Build export URL with selected IDs
+        const exportUrl = `/inspections/api/export/?ids=${encodeURIComponent(selectedIds)}`;
+        
+        // Confirm before exporting
+        if (confirm(`Export ${selectedInspections.size} selected inspection(s)?`)) {
+            window.location.href = exportUrl;
+        }
+    }
+    
+    // Debug function to show all IDs in the table
+    function debugTableIds() {
+        const rows = document.querySelectorAll('.inspection-row');
+        console.log("=== Debug: Table IDs ===");
+        console.log("Total rows:", rows.length);
+        rows.forEach((row, index) => {
+            const checkbox = row.querySelector('.inspection-checkbox');
+            const id = checkbox ? getInspectionId(checkbox) : 'No checkbox';
+            const nameCell = row.querySelector('td:nth-child(2)');
+            const name = nameCell ? nameCell.innerText.trim() : 'No name';
+            console.log(`Row ${index + 1}: ID=${id}, Name=${name}`);
+        });
+        console.log("=========================");
     }
     
     // Auto-refresh functionality
@@ -519,10 +638,19 @@
     document.addEventListener('DOMContentLoaded', function () {
         startAutoRefresh();
         
+        // Debug: Log all checkbox IDs on page load
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        console.log("Found checkboxes:", checkboxes.length);
+        checkboxes.forEach((cb, index) => {
+            const id = getInspectionId(cb);
+            console.log(`Checkbox ${index + 1}: ID=${id}, data-id=${cb.dataset.id}, value=${cb.value}`);
+        });
+        
+        // Add debug function to window for console access
+        window.debugTableIds = debugTableIds;
+        
         // Add CSRF token to all AJAX requests
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        
-        // Function to get CSRF token for fetch requests
         window.csrfToken = csrftoken;
     });
 </script>
