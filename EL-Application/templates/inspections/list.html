@@ -9,12 +9,65 @@
     .main-content {
         background-color: rgba(243, 246, 255) !important;
     }
+    
+    /* Selection Checkbox Styles */
+    .select-checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: #3b82f6;
+    }
+    
+    .select-all-checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: #3b82f6;
+    }
+    
+    /* Table row hover effect for selection */
+    .table tbody tr:hover {
+        background-color: #f8fafc;
+        cursor: pointer;
+    }
+    
+    .table tbody tr.selected {
+        background-color: #eff6ff;
+    }
+    
+    /* Bulk Select Button */
+    .bulk-select-btn {
+        margin-left: 10px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+    
+    /* Export All Button */
+    .export-all-btn {
+        margin-left: 10px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row mb-4">
-    <div class="col-md-12 text-end">
+    <div class="col-md-12 d-flex justify-content-between align-items-center">
+        <div class="d-flex gap-2">
+            <button type="button" id="bulkSelectBtn" class="btn btn-outline-primary bulk-select-btn" onclick="toggleBulkSelectMode()">
+                <i class="fas fa-check-double me-2"></i>Bulk Select
+            </button>
+            <button type="button" id="selectAllBtn" class="btn btn-outline-secondary bulk-select-btn" style="display: none;" onclick="selectAllVisible()">
+                <i class="fas fa-check-square me-2"></i>Select All
+            </button>
+            <button type="button" id="deselectAllBtn" class="btn btn-outline-secondary bulk-select-btn" style="display: none;" onclick="deselectAll()">
+                <i class="fas fa-square me-2"></i>Deselect All
+            </button>
+            <button type="button" id="exportAllBtn" class="btn btn-outline-success export-all-btn" onclick="exportAll()">
+                <i class="fas fa-download me-2"></i>Export All
+            </button>
+        </div>
         <a href="{% url 'inspections:upload' %}" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i>Upload New Images
         </a>
@@ -75,6 +128,9 @@
             <table class="table table-hover mb-0">
                 <thead class="bg-light">
                     <tr>
+                        <th class="px-4 py-3" style="width: 40px;">
+                            <input type="checkbox" id="selectAllCheckbox" class="select-all-checkbox" style="display: none;" onchange="toggleSelectAll()">
+                        </th>
                         <th class="px-4 py-3">File Name</th>
                         <th class="py-3">Date</th>
                         <th class="py-3">Status</th>
@@ -84,11 +140,14 @@
                     </thead>
                 <tbody id="resultsTableBody">
                     {% for inspection in page_obj %}
-                    <tr class="inspection-row" data-inspection-id="{{ inspection.id }}">
+                    <tr class="inspection-row" data-inspection-id="{{ inspection.id }}" data-inspection-name="{{ inspection.name }}">
+                        <td class="px-4 py-3" style="width: 40px;">
+                            <input type="checkbox" class="select-checkbox inspection-checkbox" data-id="{{ inspection.id }}" style="display: none;">
+                        </td>
                         <td class="px-4 py-3">
                             <i class="fas fa-file-image me-2 text-primary"></i>
                             {{ inspection.name|truncatechars:30 }}
-                         </td>
+                        </td>
                         <td class="py-3">{{ inspection.uploaded_at|date:"Y-m-d H:i" }}</td>
                         <td class="py-3">
                             <span class="badge 
@@ -116,24 +175,24 @@
                             {% endif %}
                         </td>
                         <td class="py-3">
-    {% if inspection.ai_confidence %}
-    <div class="d-flex align-items-center gap-2" style="min-width: 140px;">
-        <div class="progress flex-grow-1" style="height: 8px;">
-            <div class="progress-bar 
-                {% if inspection.ai_confidence > review_threshold %}progress-bar-success
-                {% elif inspection.ai_confidence > 0.6 %}progress-bar-warning
-                {% else %}progress-bar-danger{% endif %}"
-                style="width: {% widthratio inspection.ai_confidence 1 100 %}%">
-            </div>
-        </div>
-        <span class="text-muted small" style="min-width: 45px;">
-            {% widthratio inspection.ai_confidence 1 100 %}%
-        </span>
-    </div>
-    {% else %}
-    <span class="text-muted">-</span>
-    {% endif %}
-</td>
+                            {% if inspection.ai_confidence %}
+                            <div class="d-flex align-items-center gap-2" style="min-width: 140px;">
+                                <div class="progress flex-grow-1" style="height: 8px;">
+                                    <div class="progress-bar 
+                                        {% if inspection.ai_confidence > review_threshold %}progress-bar-success
+                                        {% elif inspection.ai_confidence > 0.6 %}progress-bar-warning
+                                        {% else %}progress-bar-danger{% endif %}"
+                                        style="width: {% widthratio inspection.ai_confidence 1 100 %}%">
+                                    </div>
+                                </div>
+                                <span class="text-muted small" style="min-width: 45px;">
+                                    {% widthratio inspection.ai_confidence 1 100 %}%
+                                </span>
+                            </div>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3">
                             <a href="{% url 'inspections:detail' inspection.id %}" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-eye me-1"></i>View
@@ -142,7 +201,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center py-5">
+                        <td colspan="7" class="text-center py-5">
                             <i class="fas fa-images fa-4x text-muted mb-3"></i>
                             <h5>No inspections found</h5>
                             <p class="text-muted">Upload some EL images to get started</p>
@@ -216,6 +275,179 @@
 
 {% block extra_js %}
 <script>
+    let bulkSelectMode = false;
+    let selectedInspections = new Set();
+
+    // Toggle bulk select mode
+    function toggleBulkSelectMode() {
+        bulkSelectMode = !bulkSelectMode;
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const bulkSelectBtn = document.getElementById('bulkSelectBtn');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const deselectAllBtn = document.getElementById('deselectAllBtn');
+        
+        if (bulkSelectMode) {
+            // Show checkboxes
+            checkboxes.forEach(cb => cb.style.display = 'inline-block');
+            selectAllCheckbox.style.display = 'inline-block';
+            bulkSelectBtn.innerHTML = '<i class="fas fa-times me-2"></i>Exit Bulk Select';
+            bulkSelectBtn.classList.remove('btn-outline-primary');
+            bulkSelectBtn.classList.add('btn-outline-danger');
+            selectAllBtn.style.display = 'inline-block';
+            deselectAllBtn.style.display = 'inline-block';
+            
+            // Add click handler to table rows
+            document.querySelectorAll('.inspection-row').forEach(row => {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', handleRowClick);
+            });
+        } else {
+            // Hide checkboxes
+            checkboxes.forEach(cb => cb.style.display = 'none');
+            selectAllCheckbox.style.display = 'none';
+            bulkSelectBtn.innerHTML = '<i class="fas fa-check-double me-2"></i>Bulk Select';
+            bulkSelectBtn.classList.remove('btn-outline-danger');
+            bulkSelectBtn.classList.add('btn-outline-primary');
+            selectAllBtn.style.display = 'none';
+            deselectAllBtn.style.display = 'none';
+            
+            // Remove click handler
+            document.querySelectorAll('.inspection-row').forEach(row => {
+                row.style.cursor = 'default';
+                row.removeEventListener('click', handleRowClick);
+            });
+            
+            // Clear selection
+            clearSelection();
+        }
+    }
+    
+    // Handle row click for selection
+    function handleRowClick(event) {
+        // Don't trigger if clicking on checkbox or link
+        if (event.target.type === 'checkbox' || event.target.tagName === 'A' || event.target.closest('a')) {
+            return;
+        }
+        
+        const row = event.currentTarget;
+        const checkbox = row.querySelector('.inspection-checkbox');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            checkbox.dispatchEvent(new Event('change'));
+        }
+    }
+    
+    // Update selection when checkbox changes
+    document.addEventListener('change', function(event) {
+        if (event.target.classList && event.target.classList.contains('inspection-checkbox')) {
+            const id = parseInt(event.target.dataset.id);
+            if (event.target.checked) {
+                selectedInspections.add(id);
+                event.target.closest('tr').classList.add('selected');
+            } else {
+                selectedInspections.delete(id);
+                event.target.closest('tr').classList.remove('selected');
+            }
+            updateSelectionUI();
+        }
+    });
+    
+    // Toggle select all
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+            const id = parseInt(checkbox.dataset.id);
+            if (selectAllCheckbox.checked) {
+                selectedInspections.add(id);
+                checkbox.closest('tr').classList.add('selected');
+            } else {
+                selectedInspections.delete(id);
+                checkbox.closest('tr').classList.remove('selected');
+            }
+        });
+        updateSelectionUI();
+    }
+    
+    // Select all visible items
+    function selectAllVisible() {
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+            const id = parseInt(checkbox.dataset.id);
+            selectedInspections.add(id);
+            checkbox.closest('tr').classList.add('selected');
+        });
+        updateSelectionUI();
+    }
+    
+    // Deselect all
+    function deselectAll() {
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            const id = parseInt(checkbox.dataset.id);
+            selectedInspections.delete(id);
+            checkbox.closest('tr').classList.remove('selected');
+        });
+        updateSelectionUI();
+    }
+    
+    // Clear selection
+    function clearSelection() {
+        deselectAll();
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+        updateSelectionUI();
+    }
+    
+    // Update UI based on selection
+    function updateSelectionUI() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        
+        // Update select all checkbox state
+        if (selectAllCheckbox && checkboxes.length > 0) {
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            selectAllCheckbox.checked = allChecked;
+            selectAllCheckbox.indeterminate = !allChecked && Array.from(checkboxes).some(cb => cb.checked);
+        }
+    }
+    
+    function exportAll() {
+        // Get current filters from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const search = urlParams.get('search') || '';
+        const status = urlParams.get('status') || '';
+        const date_from = urlParams.get('date_from') || '';
+        const date_to = urlParams.get('date_to') || '';
+        
+        // Build export URL with filters
+        let exportUrl = '/inspections/api/export/?';
+        if (search) exportUrl += `search=${encodeURIComponent(search)}&`;
+        if (status) exportUrl += `status=${status}&`;
+        if (date_from) exportUrl += `date_from=${date_from}&`;
+        if (date_to) exportUrl += `date_to=${date_to}&`;
+        
+        // Remove trailing & if exists
+        if (exportUrl.endsWith('&')) {
+            exportUrl = exportUrl.slice(0, -1);
+        }
+        
+        // If no filters, export all
+        if (exportUrl === '/inspections/api/export/?') {
+            exportUrl = '/inspections/api/export/';
+        }
+        
+        // Confirm before exporting all
+        if (confirm('Export all inspections matching current filters?')) {
+            window.location.href = exportUrl;
+        }
+    }
+    
     // Auto-refresh functionality
     let autoRefreshInterval = null;
     let isAutoRefreshEnabled = true;
@@ -224,13 +456,13 @@
         if (autoRefreshInterval) {
             clearInterval(autoRefreshInterval);
         }
-
+        
+        // Only auto-refresh if not in bulk select mode
         autoRefreshInterval = setInterval(() => {
-            if (isAutoRefreshEnabled) {
-                // Reload the page but preserve filters
+            if (isAutoRefreshEnabled && !bulkSelectMode && selectedInspections.size === 0) {
                 window.location.reload();
             }
-        }, 10000); // Refresh every 10 seconds
+        }, 10000);
     }
 
     function toggleAutoRefresh() {
@@ -256,10 +488,9 @@
         }
     }
 
-    // Auto-submit form when filters change (except search to prevent too many requests)
+    // Auto-submit form when filters change
     document.querySelectorAll('#filterForm select, #filterForm input[type="date"]').forEach(element => {
         element.addEventListener('change', function () {
-            // Disable auto-refresh when user applies filters
             if (autoRefreshInterval) {
                 clearInterval(autoRefreshInterval);
                 autoRefreshInterval = null;
@@ -287,6 +518,12 @@
     // Start auto-refresh when page loads
     document.addEventListener('DOMContentLoaded', function () {
         startAutoRefresh();
+        
+        // Add CSRF token to all AJAX requests
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Function to get CSRF token for fetch requests
+        window.csrfToken = csrftoken;
     });
 </script>
 {% endblock %}

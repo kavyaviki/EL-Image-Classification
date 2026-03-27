@@ -15,6 +15,13 @@ from .ai_client import AIServiceClient
 from django.utils import timezone
 from django.db.models import Count, Avg, Q
 from datetime import timedelta
+# Add these imports at the top of views.py with other imports
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
+from django.http import HttpResponse
+from urllib.parse import quote
+
 import logging
 from django.conf import settings
 
@@ -152,79 +159,6 @@ def inspection_list(request):
         'status_choices': Inspection.STATUS_CHOICES,
     }
     return render(request, 'inspections/list.html', context)
-
-# @login_required
-# def inspection_detail(request, pk):
-#     """
-#     Show detailed view of a single inspection.
-    
-#     This page displays:
-#     - The original image (via presigned URL)
-#     - AI classification results (confidence, defects, explanation)
-#     - Human override form
-#     - Classification history
-    
-#     If the inspection is still queued/processing, it attempts to fetch
-#     results from S3 and update the record automatically.
-    
-#     URL: /inspections/<uuid:pk>/
-#     Template: inspections/detail.html
-    
-#     Args:
-#         pk: UUID of the inspection to display
-        
-#     Returns:
-#         HttpResponse: Rendered detail page with inspection data
-#     """
-#     # Get the inspection or return 404 if not found or not owned by user
-#     inspection = get_object_or_404(Inspection, pk=pk, uploaded_by=request.user)
-    
-#     # ============================================================
-#     # AUTO-FETCH RESULTS IF STILL PENDING
-#     # ============================================================
-#     if inspection.status in ['queued', 'processing'] and inspection.job_id:
-#         ai_client = AIServiceClient()
-#         results = ai_client.get_results_from_s3(
-#             str(inspection.job_id),
-#             inspection.name
-#         )
-        
-#         if results:
-#             # Update inspection with AI results
-#             inspection.status = 'completed'
-#             inspection.ai_classification = results.get('prediction')
-#             inspection.ai_confidence = results.get('confidence')
-#             inspection.ai_processed_at = results.get('processed_at')
-            
-#             # # Store defects as JSON if present
-#             # if results.get('defects'):
-#             #     import json
-#             #     inspection.ai_explanation = json.dumps(results.get('defects'))
-            
-#             inspection.save()
-    
-#     # ============================================================
-#     # CHECK FOR HUMAN OVERRIDE
-#     # ============================================================
-#     try:
-#         override = inspection.override
-#     except HumanOverride.DoesNotExist:
-#         override = None
-    
-#     # ============================================================
-#     # CHECK WHERE USER CAME FROM (for back button navigation)
-#     # ============================================================
-#     # If coming from review queue, back button goes to review queue
-#     # If coming from results dashboard, back button goes to results list
-#     from_review_queue = request.GET.get('from_review_queue', 'false') == 'true'
-    
-#     context = {
-#         'inspection': inspection,
-#         'override': override,
-#         'defects': [],
-#         'from_review_queue': from_review_queue,
-#     }
-#     return render(request, 'inspections/detail.html', context)
 
 @login_required
 def inspection_detail(request, pk):
@@ -807,6 +741,242 @@ def update_inspection_status(request, pk):
         'error': 'No status provided'
     }, status=400)
 
+@login_required
+def export_inspections(request):
+    """
+    API endpoint to export selected inspections to Excel.
+    
+    URL: /inspections/api/export/
+    Method: GET
+    
+    Query Parameters:
+        ids: Comma-separated list of inspection IDs to export
+        search: Optional search term
+        status: Optional status filter
+        date_from: Optional start date
+        date_to: Optional end date
+    
+    Returns:
+        HttpResponse: Excel file download
+    """
+
+    # Add detailed logging at the start
+    print(f"=" * 50)
+    print(f"EXPORT REQUEST RECEIVED")
+    print(f"User: {request.user.email}")
+    print(f"GET Parameters: {request.GET}")
+    print(f"Time: {timezone.now()}")
+
+    # Get review threshold from settings
+    review_threshold = getattr(settings, 'REVIEW_CONFIDENCE_THRESHOLD', 0.8)
+    try:
+        review_threshold = float(review_threshold)
+    except (ValueError, TypeError):
+        review_threshold = 0.8
+    
+    # Get selected IDs from query parameter
+    ids_param = request.GET.get('ids', '')
+    print(f"IDs parameter: {ids_param}")
+    
+    selected_ids = []
+    if ids_param:
+        selected_ids = [int(id) for id in ids_param.split(',') if id.isdigit()]
+    
+    # Start with all inspections for current user
+    inspections = Inspection.objects.filter(uploaded_by=request.user)
+    
+    # Apply filters if no specific IDs are selected
+    if selected_ids:
+        inspections = inspections.filter(id__in=selected_ids)
+        print(f"Filtered by {len(selected_ids)} specific IDs")
+    else:
+        # Apply the same filters as in inspection_list view
+        search = request.GET.get('search')
+        if search:
+            inspections = inspections.filter(name__icontains=search)
+            print(f"Applied search filter: {search}")
+        
+        # Status filter
+        status_filter = request.GET.get('status')
+        if status_filter:
+            if status_filter == 'good':
+                inspections = inspections.filter(
+                    status='completed',
+                    ai_classification='good',
+                    ai_confidence__gte=review_threshold
+                )
+            elif status_filter == 'defect':
+                inspections = inspections.filter(
+                    status='completed',
+                    ai_classification='defect',
+                    ai_confidence__gte=review_threshold
+                )
+            elif status_filter == 'review':
+                inspections = inspections.filter(
+                    status='completed',
+                    ai_confidence__lt=review_threshold,
+                    human_override=False
+                )
+            elif status_filter == 'pending':
+                inspections = inspections.filter(status__in=['queued', 'processing'])
+            elif status_filter == 'failed':
+                inspections = inspections.filter(status='failed')
+            print(f"Applied status filter: {status_filter}")
+
+        # Date range filter
+        date_from = request.GET.get('date_from')
+        date_to = request.GET.get('date_to')
+        if date_from:
+            inspections = inspections.filter(uploaded_at__date__gte=date_from)
+            print(f"Applied date_from filter: {date_from}")
+        if date_to:
+            inspections = inspections.filter(uploaded_at__date__lte=date_to)
+            print(f"Applied date_to filter: {date_to}")
+    
+    # Order by most recent first
+    inspections = inspections.order_by('-uploaded_at')
+    
+    # Get count for logging
+    count = inspections.count()
+    print(f"Total inspections to export: {count}")
+
+    # Check if any inspections to export
+    if not inspections.exists():
+        print(f"No inspections found to export for user {request.user.email}")
+        return JsonResponse({'error': 'No inspections found to export'}, status=404)
+    
+    # Create Excel workbook and worksheet
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Inspection Results"
+    
+    # Define column headers
+    headers = [
+        'S.No',
+        'File Name',
+        'Date',
+        'Status',
+        'Decision Source',
+        'AI Confidence (%)'
+    ]
+    
+    # Define column widths
+    column_widths = [8, 40, 20, 15, 20, 15]
+    
+    # Style definitions
+    header_font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='3b82f6', end_color='3b82f6', fill_type='solid')
+    header_alignment = Alignment(horizontal='center', vertical='center')
+    
+    cell_alignment_center = Alignment(horizontal='center', vertical='center')
+    cell_alignment_left = Alignment(horizontal='left', vertical='center')
+    
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Write headers
+    for col_idx, header in enumerate(headers, 1):
+        cell = worksheet.cell(row=1, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+        
+        # Set column width
+        column_letter = get_column_letter(col_idx)
+        worksheet.column_dimensions[column_letter].width = column_widths[col_idx - 1]
+    
+    # Write data rows
+    for row_idx, inspection in enumerate(inspections, 2):
+        # Determine display status
+        if inspection.human_override:
+            display_status = inspection.ai_classification if inspection.ai_classification else 'Completed'
+        elif inspection.status == 'completed':
+            if inspection.ai_confidence is not None and inspection.ai_confidence < review_threshold:
+                display_status = 'Review'
+            else:
+                display_status = inspection.ai_classification if inspection.ai_classification else 'Completed'
+        elif inspection.status in ['queued', 'processing']:
+            display_status = 'Pending'
+        elif inspection.status == 'failed':
+            display_status = 'Failed'
+        else:
+            display_status = inspection.status
+        
+        # Determine decision source
+        if inspection.human_override:
+            decision_source = 'Human Override'
+        else:
+            decision_source = 'AI Classified'
+        
+        # Format confidence as percentage
+        if inspection.ai_confidence:
+            confidence = f"{inspection.ai_confidence * 100:.1f}%"
+        else:
+            confidence = '-'
+        
+        # Write row data
+        row_data = [
+            row_idx - 1,  # S.No
+            inspection.name,
+            inspection.uploaded_at.strftime('%Y-%m-%d %H:%M') if inspection.uploaded_at else '',
+            display_status.capitalize(),
+            decision_source,
+            confidence
+        ]
+        
+        for col_idx, value in enumerate(row_data, 1):
+            cell = worksheet.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            
+            # Apply alignment based on column
+            if col_idx == 2:  # File Name column - left align
+                cell.alignment = cell_alignment_left
+            else:
+                cell.alignment = cell_alignment_center
+            
+            # Apply color coding for status column
+            if col_idx == 4:  # Status column
+                if display_status.lower() == 'good':
+                    cell.fill = PatternFill(start_color='d1fae5', end_color='d1fae5', fill_type='solid')
+                elif display_status.lower() == 'defect' or display_status.lower() == 'defective':
+                    cell.fill = PatternFill(start_color='fee2e2', end_color='fee2e2', fill_type='solid')
+                elif display_status.lower() == 'review':
+                    cell.fill = PatternFill(start_color='fed7aa', end_color='fed7aa', fill_type='solid')
+                elif display_status.lower() == 'pending':
+                    cell.fill = PatternFill(start_color='e2e3e5', end_color='e2e3e5', fill_type='solid')
+            
+            # Apply color coding for decision source column
+            if col_idx == 5:  # Decision Source column
+                if decision_source == 'Human Override':
+                    cell.fill = PatternFill(start_color='fed7aa', end_color='fed7aa', fill_type='solid')
+                elif decision_source == 'AI Classified':
+                    cell.fill = PatternFill(start_color='dbeafe', end_color='dbeafe', fill_type='solid')
+    
+    # Freeze header row
+    worksheet.freeze_panes = 'A2'
+    
+    # Create HTTP response with Excel file
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    
+    # Set filename with current date
+    filename = f"inspection_report_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{quote(filename)}"'
+    
+    # Save workbook to response
+    workbook.save(response)
+    
+    print(f"✅ SUCCESS: User {request.user.email} exported {count} inspections to Excel")
+    print(f"📁 Filename: {filename}")
+    print(f"=" * 50)
+
+    return response
 
 # ============================================================================
 # CONTEXT PROCESSOR (For sidebar badge count)
