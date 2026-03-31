@@ -30,8 +30,13 @@
         <div class="sidebar">
             <!-- Logo Area - Made Clickable -->
             <a href="{% url 'inspections:upload' %}" class="logo-area" style="text-decoration: none; display: block; cursor: pointer;">
-                <h3><i class="fas fa-solar-panel me-2"></i>EL Classification</h3>
-                <small>Quality Inspection System</small>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <img src="{% static 'images/logo.png' %}" alt="Logo" style="height: 40px; width: auto;">
+                    <div>
+                        <h3 style="margin: 0;">EL Classification</h3>
+                        <small>Quality Inspection System</small>
+                    </div>
+                </div>
             </a>
 
             <div class="user-info">
