@@ -18,6 +18,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     "ec2-13-203-137-15.ap-south-1.compute.amazonaws.com",
+    "https://pv-scan.viki.ai/",
     "13.203.137.15",
     "localhost",
     "127.0.0.1"
