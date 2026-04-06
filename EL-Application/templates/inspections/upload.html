@@ -210,9 +210,33 @@
 <script>
     let selectedFiles = [];
 
+    // File size validation (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
+
     function handleFiles(files) {
-        selectedFiles = Array.from(files);
-        updatePreview();
+        const validFiles = [];
+        const invalidFiles = [];
+
+        Array.from(files).forEach(file => {
+            if (file.size <= MAX_FILE_SIZE) {
+                validFiles.push(file);
+            } else {
+                invalidFiles.push(file);
+            }
+        });
+
+        if (invalidFiles.length > 0) {
+            const fileNames = invalidFiles.map(f => f.name).join(', ');
+            showToast(`${fileNames} exceed the 10MB limit and were not added`, 'warning', 5000);
+        }
+
+        if (validFiles.length > 0) {
+            selectedFiles = validFiles;
+            updatePreview();
+        } else if (validFiles.length === 0 && invalidFiles.length > 0) {
+            selectedFiles = [];
+            updatePreview();
+        }
     }
 
     function handleDrop(event) {
@@ -221,8 +245,7 @@
 
         const files = event.dataTransfer.files;
         if (files.length > 0) {
-            selectedFiles = Array.from(files);
-            updatePreview();
+            handleFiles(files);
         }
     }
 
@@ -366,6 +389,14 @@
             return;
         }
 
+        // Validate file sizes again before upload
+        const oversizedFiles = selectedFiles.filter(file => file.size > MAX_FILE_SIZE);
+        if (oversizedFiles.length > 0) {
+            const fileNames = oversizedFiles.map(f => f.name).join(', ');
+            showToast(`${fileNames} exceed the 50MB limit`, 'error', 5000);
+            return;
+        }
+
         const formData = new FormData();
         selectedFiles.forEach(file => {
             formData.append('images', file);
@@ -394,7 +425,6 @@
 
                 if (data.success) {
                     // Show success toast with file count
-                    // const message = `✅ Successfully uploaded ${data.file_count} image(s)!<br><small class="text-muted">Job ID: ${data.job_id}</small>`;
                     const message = `✅ Successfully uploaded ${data.file_count} image(s)!`;
                     showToast(message, 'success', 60000);
 
