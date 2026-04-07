@@ -282,3 +282,41 @@ class AIServiceClient:
         except Exception as e:
             logger.error(f"❌ Failed to generate presigned URL: {e}")
             return None
+
+    def resubmit_image(self, s3_key, inspection_id):
+        """
+        Resubmit an existing image for AI analysis.
+        
+        Args:
+            s3_key: The S3 key of the image
+            inspection_id: The inspection ID
+            
+        Returns:
+            dict: Result of the resubmission
+        """
+        try:
+            # Generate a presigned URL for the existing image
+            presigned_url = self.get_presigned_image_url(s3_key)
+            
+            if not presigned_url:
+                return {'success': False, 'error': 'Could not generate presigned URL'}
+            
+            # Submit to AI service
+            response = requests.post(
+                f"{self.ai_service_url}/resubmit",
+                json={
+                    'image_url': presigned_url,
+                    'inspection_id': str(inspection_id),
+                    's3_key': s3_key
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return {'success': True, 'data': response.json()}
+            else:
+                return {'success': False, 'error': f"AI service returned {response.status_code}"}
+                
+        except Exception as e:
+            logger.error(f"Error resubmitting image: {str(e)}")
+            return {'success': False, 'error': str(e)}

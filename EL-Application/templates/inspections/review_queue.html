@@ -11,10 +11,129 @@
     .main-content {
         background-color: rgba(243, 246, 255) !important;
     }
+    
+    /* Selection Checkbox Styles */
+    .select-checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: #3b82f6;
+    }
+    
+    .select-all-checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: #3b82f6;
+    }
+    
+    /* Table row hover effect for selection */
+    .table tbody tr:hover {
+        background-color: #f8fafc;
+        cursor: pointer;
+    }
+    
+    .table tbody tr.selected {
+        background-color: #eff6ff;
+    }
+    
+    /* Toast Notification Styles */
+    .toast-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 320px;
+        max-width: 450px;
+        animation: slideInRight 0.3s ease-out;
+    }
+    
+    .toast-notification .toast {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+        border: none;
+        overflow: hidden;
+    }
+    
+    .toast-notification .toast-header {
+        border: none;
+        padding: 12px 16px;
+        font-weight: 600;
+    }
+    
+    .toast-notification.success .toast-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+    
+    .toast-notification.error .toast-header {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+    
+    .toast-notification.warning .toast-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+    }
+    
+    .toast-notification.info .toast-header {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+    
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    .toast-notification.hide {
+        animation: slideOutRight 0.3s ease-out forwards;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+
+<!-- Top Bar with Buttons -->
+<div class="row mb-4">
+    <div class="col-md-12 d-flex justify-content-between align-items-center">
+        <div class="d-flex gap-2">
+            <button type="button" id="bulkSelectBtn" class="btn btn-outline-primary" onclick="toggleBulkSelectMode()">
+                <i class="fas fa-check-double me-2"></i>Bulk Select
+            </button>
+            <button type="button" id="selectAllBtn" class="btn btn-outline-secondary" style="display: none;" onclick="selectAllVisible()">
+                <i class="fas fa-check-square me-2"></i>Select All
+            </button>
+            <button type="button" id="deselectAllBtn" class="btn btn-outline-secondary" style="display: none;" onclick="deselectAll()">
+                <i class="fas fa-square me-2"></i>Deselect All
+            </button>
+            <button type="button" id="retrySelectedBtn" class="btn btn-outline-warning" style="display: none;" onclick="retrySelected()">
+                <i class="fas fa-sync-alt me-2"></i>Retry Selected (<span id="selectedCount">0</span>)
+            </button>
+        </div>
+        <a href="{% url 'inspections:upload' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Upload New Images
+        </a>
+    </div>
+</div>
 
 <!-- Filters -->
 <div class="card mb-4">
@@ -56,15 +175,26 @@
             <table class="table table-hover mb-0">
                 <thead class="bg-light">
                     <tr>
+                        <th class="px-4 py-3" style="width: 40px;">
+                            <input type="checkbox" id="selectAllCheckbox" class="select-all-checkbox" style="display: none;" onchange="toggleSelectAll()">
+                        </th>
                         <th class="px-4 py-3">File Name</th>
                         <th class="py-3">Upload Date</th>
                         <th class="py-3">Status</th>
                         <th class="py-3">Confidence</th>
                         <th class="px-4 py-3">Action</th>
-                    </thead>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for inspection in page_obj %}
-                    <tr>
+                    <tr class="inspection-row" data-inspection-id="{{ inspection.id }}" data-inspection-name="{{ inspection.name }}">
+                        <td class="px-4 py-3" style="width: 40px;">
+                            <input type="checkbox" 
+                                   class="select-checkbox inspection-checkbox" 
+                                   data-id="{{ inspection.id }}" 
+                                   value="{{ inspection.id }}" 
+                                   style="display: none;">
+                        </td>
                         <td class="px-4 py-3">
                             <i class="fas fa-file-image me-2 text-primary"></i>
                             {{ inspection.name|truncatechars:40 }}
@@ -77,7 +207,7 @@
                                 {% if inspection.human_override %}
                                     Reviewed
                                 {% else %}
-                                    Pending
+                                    Pending Review
                                 {% endif %}
                             </span>
                         </td>
@@ -116,7 +246,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center py-5">
+                        <td colspan="6" class="text-center py-5">
                             <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
                             <h5>No pending items in review queue</h5>
                             <p class="text-muted">
@@ -192,20 +322,352 @@
 
 {% block extra_js %}
 <script>
+    let bulkSelectMode = false;
+    let selectedInspections = new Set();
+
+    // Toast Notification System
+    function showToast(message, type = 'success', duration = 5000) {
+        const existingToasts = document.querySelectorAll('.toast-notification');
+        existingToasts.forEach(toast => toast.remove());
+
+        const toastContainer = document.createElement('div');
+        toastContainer.className = `toast-notification ${type}`;
+
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-times-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        const icon = icons[type] || 'fa-check-circle';
+        const title = type.charAt(0).toUpperCase() + type.slice(1);
+
+        toastContainer.innerHTML = `
+            <div class="toast" role="alert">
+                <div class="toast-header">
+                    <i class="fas ${icon}"></i>
+                    <strong class="me-auto">${title}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">${message}</div>
+            </div>
+        `;
+
+        document.body.appendChild(toastContainer);
+        const toastElement = toastContainer.querySelector('.toast');
+        const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: duration });
+        toast.show();
+
+        toastElement.addEventListener('hidden.bs.toast', function () {
+            toastContainer.classList.add('hide');
+            setTimeout(() => toastContainer.remove(), 300);
+        });
+    }
+
+    // Helper function to get inspection ID from checkbox (UUID as string)
+    function getInspectionId(checkbox) {
+        let id = null;
+        
+        if (checkbox.dataset.id) {
+            id = checkbox.dataset.id;
+        }
+        else if (checkbox.value && checkbox.value !== '') {
+            id = checkbox.value;
+        }
+        else {
+            const row = checkbox.closest('.inspection-row');
+            if (row && row.dataset.inspectionId) {
+                id = row.dataset.inspectionId;
+            }
+        }
+        
+        if (!id) {
+            console.error("Could not extract ID from checkbox", checkbox);
+            return null;
+        }
+        
+        console.log(`Extracted ID: ${id}`);
+        return id;
+    }
+
+    // Toggle bulk select mode
+    function toggleBulkSelectMode() {
+        bulkSelectMode = !bulkSelectMode;
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const bulkSelectBtn = document.getElementById('bulkSelectBtn');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const deselectAllBtn = document.getElementById('deselectAllBtn');
+        const retrySelectedBtn = document.getElementById('retrySelectedBtn');
+        
+        if (bulkSelectMode) {
+            checkboxes.forEach(cb => cb.style.display = 'inline-block');
+            selectAllCheckbox.style.display = 'inline-block';
+            bulkSelectBtn.innerHTML = '<i class="fas fa-times me-2"></i>Exit Bulk Select';
+            bulkSelectBtn.classList.remove('btn-outline-primary');
+            bulkSelectBtn.classList.add('btn-outline-danger');
+            selectAllBtn.style.display = 'inline-block';
+            deselectAllBtn.style.display = 'inline-block';
+            retrySelectedBtn.style.display = 'inline-block';
+            
+            document.querySelectorAll('.inspection-row').forEach(row => {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', handleRowClick);
+            });
+        } else {
+            checkboxes.forEach(cb => cb.style.display = 'none');
+            selectAllCheckbox.style.display = 'none';
+            bulkSelectBtn.innerHTML = '<i class="fas fa-check-double me-2"></i>Bulk Select';
+            bulkSelectBtn.classList.remove('btn-outline-danger');
+            bulkSelectBtn.classList.add('btn-outline-primary');
+            selectAllBtn.style.display = 'none';
+            deselectAllBtn.style.display = 'none';
+            retrySelectedBtn.style.display = 'none';
+            
+            document.querySelectorAll('.inspection-row').forEach(row => {
+                row.style.cursor = 'default';
+                row.removeEventListener('click', handleRowClick);
+            });
+            
+            clearSelection();
+        }
+    }
+    
+    // Handle row click for selection
+    function handleRowClick(event) {
+        if (event.target.type === 'checkbox' || event.target.tagName === 'A' || event.target.closest('a')) {
+            return;
+        }
+        
+        const row = event.currentTarget;
+        const checkbox = row.querySelector('.inspection-checkbox');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            const changeEvent = new Event('change', { bubbles: true });
+            checkbox.dispatchEvent(changeEvent);
+        }
+    }
+    
+    // Update selection when checkbox changes
+    document.addEventListener('change', function(event) {
+        if (event.target.classList && event.target.classList.contains('inspection-checkbox')) {
+            const id = getInspectionId(event.target);
+            if (!id) {
+                console.error("No valid ID found for checkbox", event.target);
+                return;
+            }
+            
+            console.log("Checkbox changed - ID:", id, "Checked:", event.target.checked);
+            
+            if (event.target.checked) {
+                selectedInspections.add(id);
+                event.target.closest('tr').classList.add('selected');
+            } else {
+                selectedInspections.delete(id);
+                event.target.closest('tr').classList.remove('selected');
+            }
+            updateSelectionUI();
+        }
+    });
+    
+    // Toggle select all
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+            const id = getInspectionId(checkbox);
+            if (id) {
+                if (selectAllCheckbox.checked) {
+                    selectedInspections.add(id);
+                    checkbox.closest('tr').classList.add('selected');
+                } else {
+                    selectedInspections.delete(id);
+                    checkbox.closest('tr').classList.remove('selected');
+                }
+            }
+        });
+        updateSelectionUI();
+    }
+    
+    // Select all visible items
+    function selectAllVisible() {
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+            const id = getInspectionId(checkbox);
+            if (id) {
+                console.log("Select All - Adding ID:", id);
+                selectedInspections.add(id);
+                checkbox.closest('tr').classList.add('selected');
+            }
+        });
+        updateSelectionUI();
+    }
+    
+    // Deselect all
+    function deselectAll() {
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            const id = getInspectionId(checkbox);
+            if (id) {
+                console.log("Deselect All - Removing ID:", id);
+                selectedInspections.delete(id);
+                checkbox.closest('tr').classList.remove('selected');
+            }
+        });
+        updateSelectionUI();
+    }
+    
+    // Clear selection
+    function clearSelection() {
+        deselectAll();
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+        updateSelectionUI();
+    }
+    
+    // Update UI based on selection
+    function updateSelectionUI() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        const selectedCountSpan = document.getElementById('selectedCount');
+        const retrySelectedBtn = document.getElementById('retrySelectedBtn');
+        
+        if (selectedCountSpan) {
+            selectedCountSpan.textContent = selectedInspections.size;
+        }
+        
+        if (selectAllCheckbox && checkboxes.length > 0) {
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            selectAllCheckbox.checked = allChecked;
+            selectAllCheckbox.indeterminate = !allChecked && Array.from(checkboxes).some(cb => cb.checked);
+        }
+        
+        if (retrySelectedBtn) {
+            retrySelectedBtn.disabled = selectedInspections.size === 0;
+            retrySelectedBtn.style.opacity = selectedInspections.size === 0 ? '0.5' : '1';
+        }
+        
+        if (selectedInspections.size > 0) {
+            console.log("Current selection:", Array.from(selectedInspections));
+        }
+    }
+    
+    // Retry selected inspections
+    async function retrySelected() {
+        if (selectedInspections.size === 0) {
+            showToast('Please select at least one inspection to retry', 'warning', 3000);
+            return;
+        }
+        
+        const selectedIds = Array.from(selectedInspections);
+        
+        if (!confirm(`Retry AI analysis for ${selectedIds.length} selected inspection(s)? This will re-process the images and update the results.`)) {
+            return;
+        }
+        
+        const retryBtn = document.getElementById('retrySelectedBtn');
+        const originalText = retryBtn.innerHTML;
+        retryBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+        retryBtn.disabled = true;
+        
+        showToast(`Submitting ${selectedIds.length} image(s) for re-analysis...`, 'info', 3000);
+        
+        try {
+            const response = await fetch('/inspections/api/retry-analyses/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ inspection_ids: selectedIds })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast(data.message, 'success', 5000);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showToast(data.error || 'Failed to retry analyses', 'error', 5000);
+                retryBtn.innerHTML = originalText;
+                retryBtn.disabled = false;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Network error. Please try again.', 'error', 5000);
+            retryBtn.innerHTML = originalText;
+            retryBtn.disabled = false;
+        }
+    }
+    
+    function getCsrfToken() {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, 'csrftoken'.length + 1) === ('csrftoken=')) {
+                    cookieValue = decodeURIComponent(cookie.substring('csrftoken'.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Debug function to show all IDs in the table
+    function debugTableIds() {
+        const rows = document.querySelectorAll('.inspection-row');
+        console.log("=== Debug: Table IDs ===");
+        console.log("Total rows:", rows.length);
+        rows.forEach((row, index) => {
+            const checkbox = row.querySelector('.inspection-checkbox');
+            const id = checkbox ? getInspectionId(checkbox) : 'No checkbox';
+            const nameCell = row.querySelector('td:nth-child(2)');
+            const name = nameCell ? nameCell.innerText.trim() : 'No name';
+            console.log(`Row ${index + 1}: ID=${id}, Name=${name}`);
+        });
+        console.log("=========================");
+    }
+    
     // Auto-submit form when filters change
     document.querySelectorAll('#filterForm select, #filterForm input[type="date"]').forEach(element => {
         element.addEventListener('change', function () {
             document.getElementById('filterForm').submit();
         });
     });
-
+    
     // For search, submit only after typing stops (debounce)
     let searchTimeout;
-    document.querySelector('input[name="search"]').addEventListener('input', function () {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            document.getElementById('filterForm').submit();
-        }, 500);
+    const searchInput = document.querySelector('input[name="search"]');
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                document.getElementById('filterForm').submit();
+            }, 500);
+        });
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Debug: Log all checkbox IDs on page load
+        const checkboxes = document.querySelectorAll('.inspection-checkbox');
+        console.log("Found checkboxes:", checkboxes.length);
+        checkboxes.forEach((cb, index) => {
+            const id = getInspectionId(cb);
+            console.log(`Checkbox ${index + 1}: ID=${id}, data-id=${cb.dataset.id}, value=${cb.value}`);
+        });
+        
+        // Add debug function to window for console access
+        window.debugTableIds = debugTableIds;
     });
 </script>
 {% endblock %}

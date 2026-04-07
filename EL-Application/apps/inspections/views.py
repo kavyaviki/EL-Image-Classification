@@ -25,6 +25,10 @@ from urllib.parse import quote
 import logging
 from django.conf import settings
 
+import json
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
 logger = logging.getLogger(__name__)
 
 
@@ -1017,3 +1021,70 @@ def review_queue_count(request):
         ).count()
         return {'review_queue_count': count}
     return {'review_queue_count': 0}
+
+# Retry Button Code
+@login_required
+@require_http_methods(["POST"])
+def retry_analyses(request):
+    """
+    API endpoint to retry AI analysis for selected inspections.
+    Just resets the status so they can be processed again.
+    """
+    try:
+        data = json.loads(request.body)
+        inspection_ids = data.get('inspection_ids', [])
+        
+        if not inspection_ids:
+            return JsonResponse({'success': False, 'error': 'No inspection IDs provided'}, status=400)
+        
+        # Get the inspections
+        inspections = Inspection.objects.filter(
+            id__in=inspection_ids,
+            uploaded_by=request.user
+        )
+        
+        if not inspections.exists():
+            return JsonResponse({'success': False, 'error': 'No valid inspections found'}, status=404)
+        
+        successful = []
+        failed = []
+        
+        for inspection in inspections:
+            try:
+                # Reset the inspection to queued status
+                # Keep existing values to avoid null constraint
+                if not inspection.ai_classification:
+                    inspection.ai_classification = 'pending'
+                if inspection.ai_confidence is None:
+                    inspection.ai_confidence = 0.0
+                    
+                inspection.status = 'queued'
+                inspection.human_override = False
+                
+                # If there's a human override record, delete it
+                if hasattr(inspection, 'override'):
+                    inspection.override.delete()
+                
+                inspection.save()
+                successful.append(str(inspection.id))
+                
+            except Exception as e:
+                logger.error(f"Failed to retry inspection {inspection.id}: {str(e)}")
+                failed.append(str(inspection.id))
+        
+        message = f"Successfully queued {len(successful)} inspection(s) for re-analysis"
+        if failed:
+            message += f". Failed: {len(failed)} inspection(s)"
+        
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'successful_ids': successful,
+            'failed_ids': failed
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger.error(f"Error in retry_analyses: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

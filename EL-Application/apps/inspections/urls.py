@@ -11,6 +11,7 @@ urlpatterns = [
     path('api/status/<uuid:job_id>/', views.check_job_status, name='api_status'),
     path('api/override/<uuid:pk>/', views.human_override, name='api_override'),
     path('api/export/', views.export_inspections, name='api_export'),
+    path('api/retry-analyses/', views.retry_analyses, name='api_retry_analyses'),
     
     # ============================================================
     # MAIN PAGE VIEWS - Specific static paths
