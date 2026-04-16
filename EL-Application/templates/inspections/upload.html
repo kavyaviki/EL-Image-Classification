@@ -209,8 +209,9 @@
 {% block extra_js %}
 <script>
     let selectedFiles = [];
+    const BATCH_SIZE = 90; // Safe margin below AI's 100 file limit
 
-    // File size validation (10MB = 10 * 1024 * 1024 bytes)
+    // File size validation (50MB = 50 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
 
     function handleFiles(files) {
@@ -227,7 +228,7 @@
 
         if (invalidFiles.length > 0) {
             const fileNames = invalidFiles.map(f => f.name).join(', ');
-            showToast(`${fileNames} exceed the 10MB limit and were not added`, 'warning', 5000);
+            showToast(`${fileNames} exceed the 50MB limit and were not added`, 'warning', 5000);
         }
 
         if (validFiles.length > 0) {
@@ -356,7 +357,7 @@
                 <strong class="me-auto">Processing</strong>
             </div>
             <div class="toast-body">
-                <i class="fas fa-upload me-2"></i>Uploading your images...
+                <i class="fas fa-upload me-2"></i>Preparing upload...
             </div>
         </div>
     `;
@@ -378,7 +379,25 @@
         }
     }
 
-    function submitUpload(event) {
+    function updateLoadingToastProgress(currentBatch, totalBatches, filesInBatch) {
+        const loadingToast = document.getElementById('loadingToast');
+        if (loadingToast) {
+            const toastBody = loadingToast.querySelector('.toast-body');
+            if (toastBody) {
+                const totalFiles = selectedFiles.length;
+                const uploadedSoFar = (currentBatch - 1) * BATCH_SIZE + filesInBatch;
+                const percentage = Math.min(100, Math.round((uploadedSoFar / totalFiles) * 100));
+                toastBody.innerHTML = `
+                    <i class="fas fa-spinner fa-spin me-2"></i>
+                    <strong>Uploading Batch ${currentBatch} of ${totalBatches}</strong><br>
+                    Progress: ${uploadedSoFar} of ${totalFiles} files (${percentage}%)<br>
+                    <small class="text-muted">Please wait...</small>
+                `;
+            }
+        }
+    }
+
+    async function submitUpload(event) {
         // Prevent event bubbling to parent elements
         if (event) {
             event.stopPropagation();
@@ -397,66 +416,123 @@
             return;
         }
 
-        const formData = new FormData();
-        selectedFiles.forEach(file => {
-            formData.append('images', file);
-        });
-        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-
         const submitBtn = document.getElementById('submitBtn');
         const originalText = submitBtn.innerHTML;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
         submitBtn.disabled = true;
 
         // Show loading toast
-        const loadingToast = showLoadingToast();
+        showLoadingToast();
 
-        fetch('/inspections/api/upload/', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
-        })
-            .then(response => response.json())
-            .then(data => {
-                // Hide loading toast
-                hideLoadingToast();
+        // Split files into batches
+        const batches = [];
+        for (let i = 0; i < selectedFiles.length; i += BATCH_SIZE) {
+            batches.push(selectedFiles.slice(i, i + BATCH_SIZE));
+        }
 
-                if (data.success) {
-                    // Show success toast with file count
-                    const message = `✅ Successfully uploaded ${data.file_count} image(s)!`;
-                    showToast(message, 'success', 60000);
+        let successCount = 0;
+        let failedCount = 0;
+        let currentBatchNumber = 0;
+        const failedBatches = [];
 
-                    // Refresh page after a short delay
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
-                } else {
-                    // Show error toast
-                    const errorMessage = data.error || 'Upload failed. Please try again.';
-                    showToast(errorMessage, 'error', 6000);
+        try {
+            // Process batches sequentially
+            for (const batch of batches) {
+                currentBatchNumber++;
+                
+                // Update progress toast
+                updateLoadingToastProgress(currentBatchNumber, batches.length, batch.length);
 
-                    // Re-enable button on failure
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
+                const formData = new FormData();
+                batch.forEach(file => {
+                    formData.append('images', file);
+                });
+                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+                // Add AbortController for timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes
+
+                try {
+                    const response = await fetch('/inspections/api/upload/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) {
+                        let errorMessage = `HTTP ${response.status}`;
+                        try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.error || errorData.detail || errorMessage;
+                        } catch(e) {
+                            // If response is not JSON, use status text
+                            errorMessage = response.statusText || errorMessage;
+                        }
+                        throw new Error(errorMessage);
+                    }
+
+                    const data = await response.json();
+                    if (data.success) {
+                        successCount += batch.length;
+                        console.log(`Batch ${currentBatchNumber} succeeded: ${batch.length} files`);
+                    } else {
+                        failedCount += batch.length;
+                        failedBatches.push(currentBatchNumber);
+                        console.error(`Batch ${currentBatchNumber} failed:`, data.error);
+                    }
+                } catch (batchError) {
+                    clearTimeout(timeoutId);
+                    console.error(`Batch ${currentBatchNumber} failed:`, batchError);
+                    failedCount += batch.length;
+                    failedBatches.push(currentBatchNumber);
+                    
+                    // Show warning for this batch but continue with others
+                    showToast(`Batch ${currentBatchNumber} failed: ${batchError.message}`, 'warning', 4000);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                // Hide loading toast
-                hideLoadingToast();
+            }
 
-                // Show error toast
-                showToast(error.message || 'Network error. Please check your connection.', 'error', 6000);
+            // Hide loading toast
+            hideLoadingToast();
 
-                // Re-enable button on error
+            // Show final result
+            if (successCount > 0 && failedCount === 0) {
+                showToast(`✅ Successfully uploaded all ${successCount} image(s)! They are now queued for AI processing.`, 'success', 5000);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else if (successCount > 0 && failedCount > 0) {
+                showToast(`⚠️ Partial success: ${successCount} uploaded, ${failedCount} failed. Failed batches: ${failedBatches.join(', ')}`, 'warning', 8000);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showToast(`❌ Upload failed: ${failedCount} image(s) could not be uploaded. Please try again with fewer files.`, 'error', 6000);
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
-            });
+            }
+        } catch (error) {
+            hideLoadingToast();
+            console.error('Upload error:', error);
+            
+            let errorMessage = 'Upload failed. Please try again.';
+            if (error.name === 'AbortError') {
+                errorMessage = 'Request timed out after 10 minutes. The server is taking too long to respond.';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            showToast(errorMessage, 'error', 6000);
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
     }
-
-    // Helper function to escape HTML to prevent XSS
+    
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;

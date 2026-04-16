@@ -9,6 +9,8 @@ from decouple import config
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Increase maximum number of files that can be uploaded
+DATA_UPLOAD_MAX_NUMBER_FILES = None
 
 # SECURITY
 SECRET_KEY = 'django-insecure-92hs_v06+e6bx=4gp&q_(#%b1!mzdw97zjod72l*xc_#&_j@mw'

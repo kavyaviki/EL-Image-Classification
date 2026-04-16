@@ -110,7 +110,7 @@ class AIServiceClient:
             response = requests.post(
                 f"{self.base_url}/EL-Image-AI",
                 files=files_payload,
-                timeout=30  # Wait up to 30 seconds for response
+                timeout=900  # Wait up to 900 seconds(15 Minutes) for response
             )
             
             # ============================================================
@@ -309,7 +309,7 @@ class AIServiceClient:
                     'inspection_id': str(inspection_id),
                     's3_key': s3_key
                 },
-                timeout=30
+                timeout=900  # Wait up to 900 seconds(15 Minutes) for response
             )
             
             if response.status_code == 200:
